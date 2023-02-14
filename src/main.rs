@@ -17,10 +17,11 @@
 // takes ~22 bytes per empty cell (2^14 x 2^14 takes ~6 GB)
 const GRID_WIDTH: usize = 256;
 const GRID_HEIGHT: usize = 256;
-const MAX_CELLS_COUNT: usize = GRID_WIDTH * GRID_HEIGHT / 2;
+const MAX_ENTITIES_COUNT: usize = GRID_WIDTH * GRID_HEIGHT / 2;
 
 const CAMERA_SPEED: f64 = 0.5;
 const SCROLL_SPEED: f64 = 1.1;
+const MAX_ZOOM_OUT: f64 = 1./128.;
 
 
 
@@ -47,8 +48,14 @@ fn main() -> Result<(), ProgramError> {
 
     let mut program_data = init::init_program_data(&canvas, &texture_creator, &ttf_context)?;
     
-    program_data.world.add_cell(Cell::new(1.5, 1.5));
+    program_data.world.add_entity(Entity {
+        x: 1.5,
+        y: 1.5,
+        data: EntityData::Cell {},
+    });
 
+    let mut last_fps_instant = Instant::now();
+    let mut fps_count = 0;
     while !program_data.exit {
 
         let dt = last_update_instant.elapsed();
@@ -57,6 +64,12 @@ fn main() -> Result<(), ProgramError> {
 
         render::render(&mut canvas, &mut program_data)?;
 
+        fps_count += 1;
+        if last_fps_instant.elapsed().as_millis() > 1000 {
+            println!("FPS: {fps_count}");
+            fps_count = 0;
+            last_fps_instant = Instant::now();
+        }
     }
 
     Ok(())

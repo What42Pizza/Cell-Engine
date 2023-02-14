@@ -52,8 +52,8 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
             for x in start_grid_x..=end_grid_x {
                 let current_slot = &program_data.world.grid[x][y];
                 for cell_id in current_slot {
-                    let cell = program_data.world.cells.get(cell_id).unwrap();
-                    render_cell(cell, camera, canvas_size, canvas, &textures.circle)?;
+                    let cell = program_data.world.entities.get(cell_id).unwrap();
+                    render_entity(cell, camera, canvas_size, canvas, &textures.circle)?;
                 }
             }
         }
@@ -68,9 +68,9 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
 
 
 
-pub fn render_cell (cell: &Cell, camera: &Camera, canvas_size: (u32, u32), canvas: &mut WindowCanvas, circle_texture: &Texture) -> Result<(), ProgramError> {
-    let (top_left_x    , top_left_y    ) = fns::convert_grid_to_screen((cell.x - 0.5, cell.y - 0.5), camera, canvas_size);
-    let (bottom_right_x, bottom_right_y) = fns::convert_grid_to_screen((cell.x + 0.5, cell.y + 0.5), camera, canvas_size);
+pub fn render_entity (entity: &Entity, camera: &Camera, canvas_size: (u32, u32), canvas: &mut WindowCanvas, circle_texture: &Texture) -> Result<(), ProgramError> {
+    let (top_left_x    , top_left_y    ) = fns::convert_grid_to_screen((entity.x - 0.5, entity.y - 0.5), camera, canvas_size);
+    let (bottom_right_x, bottom_right_y) = fns::convert_grid_to_screen((entity.x + 0.5, entity.y + 0.5), camera, canvas_size);
     let dst = Rect::new(top_left_x, top_left_y, (bottom_right_x - top_left_x) as u32, (bottom_right_y - top_left_y) as u32);
     canvas.copy(circle_texture, None, dst)?;
     Ok(())

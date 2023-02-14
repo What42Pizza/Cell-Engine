@@ -13,6 +13,7 @@ pub struct ProgramData<'a> {
     pub font: Font<'a, 'a>,
     pub keys_pressed: HashMap<Keycode, ()>,
 
+    pub cells_list: HashMap<EntityID, ()>,
     pub world: World,
 
 }
@@ -20,9 +21,23 @@ pub struct ProgramData<'a> {
 
 
 pub struct World {
-    pub cells: HashMap<CellID, Cell>,
-    pub current_cell_id: CellID,
-    pub grid: Box<[[Vec<CellID>; GRID_HEIGHT]; GRID_WIDTH]>,
+    pub entities: HashMap<EntityID, Entity>,
+    pub current_entity_id: EntityID,
+    pub grid: Vec<Vec<Vec<EntityID>>>,
+}
+
+pub type EntityID = u32;
+
+pub struct Entity  {
+    pub x: f64,
+    pub y: f64,
+    pub data: EntityData
+}
+
+pub enum EntityData {
+    Cell {
+
+    }
 }
 
 
@@ -30,62 +45,46 @@ pub struct World {
 impl World {
 
     pub fn new() -> Self {
+        let mut grid = Vec::with_capacity(GRID_WIDTH);
+        for _ in 0..GRID_WIDTH {
+            let mut column = Vec::with_capacity(GRID_HEIGHT);
+            for _ in 0..GRID_HEIGHT {
+                column.push(vec!());
+            }
+            grid.push(column);
+        }
         Self {
-            cells: HashMap::new(),
-            current_cell_id: 0,
-            grid: fns::init_boxed_2d_array(|_, _| vec!()),
+            entities: HashMap::new(),
+            current_entity_id: 0,
+            grid,
         }
     }
 
-    pub fn add_cell (&mut self, mut cell: Cell) -> Option<CellID> {
+    pub fn add_entity (&mut self, mut entity: Entity) -> Option<EntityID> {
 
-        if self.cells.len() >= MAX_CELLS_COUNT {return None;}
-        let (cell_x, cell_y) = (
-            cell.x.clamp(0., GRID_WIDTH  as f64) as usize,
-            cell.y.clamp(0., GRID_HEIGHT as f64) as usize,
+        if self.entities.len() >= MAX_ENTITIES_COUNT {return None;}
+        let (x_int, y_int) = (
+            entity.x.clamp(0., GRID_WIDTH  as f64) as usize,
+            entity.y.clamp(0., GRID_HEIGHT as f64) as usize,
         );
 
         // add to list
-        let mut cell_id;
+        let mut entity_id;
         loop {
-            cell_id = self.current_cell_id;
-            self.current_cell_id += 1;
-            match self.cells.insert(cell_id, cell) {
-                Some(returned_cell) => cell = returned_cell,
+            entity_id = self.current_entity_id;
+            self.current_entity_id += 1;
+            match self.entities.insert(entity_id, entity) {
+                Some(returned_entity) => entity = returned_entity,
                 None => break,
             }
         }
 
         // add to grid
-        self.grid[cell_x][cell_y].push(cell_id);
+        self.grid[x_int][y_int].push(entity_id);
 
-        Some(cell_id)
+        Some(entity_id)
     }
 
-}
-
-
-
-
-
-pub type CellID = u32;
-
-pub struct Cell {
-    pub x: f64,
-    pub y: f64,
-    pub xvel: f64,
-    pub yvel: f64,
-}
-
-impl Cell {
-    pub fn new (x: f64, y: f64) -> Self {
-        Self {
-            x,
-            y,
-            xvel: 0.,
-            yvel: 0.,
-        }
-    }
 }
 
 

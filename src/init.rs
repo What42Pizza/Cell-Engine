@@ -61,6 +61,7 @@ pub fn init_program_data<'a> (canvas: &Canvas<Window>, texture_creator: &'a Text
         font,
         keys_pressed: HashMap::new(),
 
+        cells_list: HashMap::new(),
         world: World::new(),
 
     })

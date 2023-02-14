@@ -9,7 +9,7 @@ pub fn update (program_data: &mut ProgramData, event_pump: &mut EventPump, canva
 
     move_camera(program_data, dt)?;
 
-    program_data.world.cells.get_mut(&0).unwrap().x += 0.5 * dt.as_secs_f64();
+    program_data.world.entities.get_mut(&0).unwrap().x += 0.5 * dt.as_secs_f64();
 
     Ok(())
 }
@@ -62,6 +62,7 @@ fn process_mouse_wheel (program_data: &mut ProgramData, y: i32, mouse_state: &Mo
     let mouse_pos = (mouse_state.x(), mouse_state.y());
     let start_grid_pos = fns::convert_screen_to_grid(mouse_pos, &program_data.camera, canvas_size);
     program_data.camera.zoom *= SCROLL_SPEED.pow(y as f64);
+    program_data.camera.zoom = program_data.camera.zoom.max(MAX_ZOOM_OUT);
     let end_grid_pos = fns::convert_screen_to_grid(mouse_pos, &program_data.camera, canvas_size);
     program_data.camera.x -= end_grid_pos.0 - start_grid_pos.0;
     program_data.camera.y -= end_grid_pos.1 - start_grid_pos.1;
