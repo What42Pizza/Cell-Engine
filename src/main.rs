@@ -1,5 +1,5 @@
 // Started 02/11/23
-// Last updated 02/12/23
+// Last updated 02/13/23
 
 
 
@@ -15,8 +15,8 @@
 // settings
 
 // takes ~22 bytes per empty cell (2^14 x 2^14 takes ~6 GB)
-const GRID_WIDTH: usize = 256;
-const GRID_HEIGHT: usize = 256;
+const GRID_WIDTH: usize = 64;
+const GRID_HEIGHT: usize = 64;
 const MAX_ENTITIES_COUNT: usize = GRID_WIDTH * GRID_HEIGHT / 2;
 
 const CAMERA_SPEED: f64 = 0.5;
@@ -25,7 +25,7 @@ const MAX_ZOOM_OUT: f64 = 1./128.;
 
 
 
-mod update;
+mod update_mod;
 mod render;
 mod init;
 mod data_mod;
@@ -38,7 +38,7 @@ use prelude::*;
 
 
 
-fn main() -> Result<(), ProgramError> {
+pub fn main() -> Result<(), ProgramError> {
     let mut last_update_instant = Instant::now();
 
     // sdl
@@ -47,12 +47,13 @@ fn main() -> Result<(), ProgramError> {
     let texture_creator = canvas.texture_creator();
 
     let mut program_data = init::init_program_data(&canvas, &texture_creator, &ttf_context)?;
-    
-    program_data.world.add_entity(Entity {
-        x: 1.5,
-        y: 1.5,
-        data: EntityData::Cell {},
-    });
+
+    program_data.world.add_entity(Entity::new(1.5, 1.5, 1., 1.,
+        EntityData::Cell {
+            x_vel: 0.5,
+            y_vel: 0.1,
+        }
+    ));
 
     let mut last_fps_instant = Instant::now();
     let mut fps_count = 0;

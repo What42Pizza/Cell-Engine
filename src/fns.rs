@@ -1,80 +1,19 @@
 use crate::prelude::*;
-use std::{fs::OpenOptions, mem::{MaybeUninit, self}};
+use std::fs::OpenOptions;
 use sdl2::{render::{TextureCreator, TextureValueError}, video::WindowContext, surface::Surface};
 
 
 
 
 
-// created with help from https://github.com/rust-lang/rust/issues/54542#issuecomment-425716637
-
-/*
-pub fn init_boxed_array<I, O, const LEN: usize> (mut input_fn: I) -> Box<[O; LEN]>
-    where I: FnMut(usize) -> O
-{
-    unsafe {
-        let mut output: Box<MaybeUninit<[O; LEN]>> = box MaybeUninit::uninit();
-        let arr_ptr = output.as_mut_ptr() as *mut O;
-        for i in 0..LEN {
-            arr_ptr.add(i).write(input_fn(i));
+pub fn find_item_index<T: PartialEq> (input: &[T], item: &T) -> Option<usize> {
+    for (i, curr_item) in input.iter().enumerate() {
+        if curr_item == item {
+            return Some(i);
         }
-        mem::transmute(output)
     }
+    None
 }
-*/
-
-pub fn init_boxed_2d_array<I, O, const LEN_1: usize, const LEN_2: usize> (mut input_fn: I) -> Box<[[O; LEN_2]; LEN_1]>
-    where I: FnMut(usize, usize) -> O
-{
-    unsafe {
-        let mut output: Box<MaybeUninit<[[O; LEN_2]; LEN_1]>> = box MaybeUninit::uninit();
-        let arr_ptr = output.as_mut_ptr() as *mut O;
-        for i1 in 0..LEN_1 {
-            for i2 in 0..LEN_2 {
-                arr_ptr.add(i1 + i2 * LEN_1).write(input_fn(i1, i2));
-            }
-        }
-        mem::transmute(output)
-    }
-}
-
-/*
-pub fn init_boxed_3d_array<I, O, const LEN_1: usize, const LEN_2: usize, const LEN_3: usize> (mut input_fn: I) -> Box<[[[O; LEN_3]; LEN_2]; LEN_1]>
-    where I: FnMut(usize, usize, usize) -> O
-{
-    unsafe {
-        let mut output: Box<MaybeUninit<[[[O; LEN_3]; LEN_2]; LEN_1]>> = box MaybeUninit::uninit();
-        let arr_ptr = output.as_mut_ptr() as *mut O;
-        for i1 in 0..LEN_1 {
-            for i2 in 0..LEN_2 {
-                for i3 in 0..LEN_3 {
-                    arr_ptr.add(i1 + i2 * LEN_1 + i3 * LEN_1 * LEN_2).write(input_fn(i1, i2, i3));
-                }
-            }
-        }
-        mem::transmute(output)
-    }
-}
-
-pub fn init_boxed_4d_array<I, O, const LEN_1: usize, const LEN_2: usize, const LEN_3: usize, const LEN_4: usize> (mut input_fn: I) -> Box<[[[[O; LEN_4]; LEN_3]; LEN_2]; LEN_1]>
-    where I: FnMut(usize, usize, usize, usize) -> O
-{
-    unsafe {
-        let mut output: Box<MaybeUninit<[[[[O; LEN_4]; LEN_3]; LEN_2]; LEN_1]>> = box MaybeUninit::uninit();
-        let arr_ptr = output.as_mut_ptr() as *mut O;
-        for i1 in 0..LEN_1 {
-            for i2 in 0..LEN_2 {
-                for i3 in 0..LEN_3 {
-                    for i4 in 0..LEN_4 {
-                        arr_ptr.add(i1 + i2 * LEN_1 + i3 * LEN_1 * LEN_2 + i4 * LEN_1 * LEN_2 * LEN_3).write(input_fn(i1, i2, i3, i4));
-                    }
-                }
-            }
-        }
-        mem::transmute(output)
-    }
-}
-*/
 
 
 
@@ -102,10 +41,9 @@ pub fn convert_screen_to_grid (screen_pos: (i32, i32), camera: &Camera, canvas_s
 }
 
 pub fn convert_single_screen_to_grid (screen_pos: i32, camera_pos: f64, zoom: f64, canvas_size: (u32, u32)) -> f64 {
-    let screen_pos = screen_pos as f64 / canvas_size.1 as f64;
-    let pos_scaled = screen_pos / zoom;
-    let pos_plus_camera = pos_scaled + camera_pos;
-    pos_plus_camera
+    let pos_scaled = screen_pos as f64 / canvas_size.1 as f64;
+    let pos_scaled = pos_scaled / zoom;
+    pos_scaled + camera_pos
 }
 
 

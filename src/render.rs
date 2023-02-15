@@ -12,7 +12,7 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
     //canvas.clear();
 
     let (start_grid_x, start_grid_y) = (program_data.camera.x.floor(), program_data.camera.y.floor());
-    let (mut end_grid_x, mut end_grid_y) = (0., 0.);
+    let (end_grid_x, end_grid_y);
 
     { // draw ground
         let zoom = program_data.camera.zoom;
@@ -31,29 +31,33 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
                 curr_grid_x += 1.;
                 curr_screen_x = next_screen_x;
                 next_screen_x = fns::convert_single_grid_to_screen(curr_grid_x + 1., camera.x, zoom, canvas_size);
-                if curr_screen_x > canvas_size.0 as i32 {end_grid_x = curr_grid_x; break 'x;}
+                if curr_screen_x > canvas_size.0 as i32 {break 'x;}
             }
             curr_grid_y += 1.;
             curr_screen_y = next_screen_y;
             next_screen_y = fns::convert_single_grid_to_screen(curr_grid_y + 1., camera.y, zoom, canvas_size);
-            if curr_screen_y > canvas_size.1 as i32 {end_grid_y = curr_grid_y; break 'y;}
+            if curr_screen_y > canvas_size.1 as i32 {
+                end_grid_x = curr_grid_x;
+                end_grid_y = curr_grid_y;
+                break 'y;
+            }
         }
     }
 
     let (start_grid_x, start_grid_y) = (start_grid_x as isize, start_grid_y as isize);
     let (end_grid_x, end_grid_y) = (end_grid_x as isize, end_grid_y as isize);
 
-    { // draw cells
-        let start_grid_x = start_grid_x.max(0) as usize;
-        let start_grid_y = start_grid_y.max(0) as usize;
-        let end_grid_x = end_grid_x.min(GRID_WIDTH  as isize - 1) as usize;
-        let end_grid_y = end_grid_y.min(GRID_HEIGHT as isize - 1) as usize;
+    { // draw entities
+        let start_grid_x = (start_grid_x - 1).max(0) as usize;
+        let start_grid_y = (start_grid_y - 1).max(0) as usize;
+        let end_grid_x = (end_grid_x + 1).min(GRID_WIDTH  as isize - 1) as usize;
+        let end_grid_y = (end_grid_y + 1).min(GRID_HEIGHT as isize - 1) as usize;
         for y in start_grid_y..=end_grid_y {
             for x in start_grid_x..=end_grid_x {
-                let current_slot = &program_data.world.grid[x][y];
+                let current_slot = &program_data.world.entities_by_pos[x + y * GRID_WIDTH];
                 for cell_id in current_slot {
-                    let cell = program_data.world.entities.get(cell_id).unwrap();
-                    render_entity(cell, camera, canvas_size, canvas, &textures.circle)?;
+                    let cell = program_data.world.entities_list.get(cell_id).unwrap();
+                    render_entity(cell, camera, canvas_size, canvas, textures)?;
                 }
             }
         }
@@ -68,11 +72,11 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
 
 
 
-pub fn render_entity (entity: &Entity, camera: &Camera, canvas_size: (u32, u32), canvas: &mut WindowCanvas, circle_texture: &Texture) -> Result<(), ProgramError> {
-    let (top_left_x    , top_left_y    ) = fns::convert_grid_to_screen((entity.x - 0.5, entity.y - 0.5), camera, canvas_size);
-    let (bottom_right_x, bottom_right_y) = fns::convert_grid_to_screen((entity.x + 0.5, entity.y + 0.5), camera, canvas_size);
+pub fn render_entity (entity: &Entity, camera: &Camera, canvas_size: (u32, u32), canvas: &mut WindowCanvas, textures: &ProgramTextures) -> Result<(), ProgramError> {
+    let (top_left_x    , top_left_y    ) = fns::convert_grid_to_screen((entity.x - entity.width  / 2., entity.y - entity.width  / 2.), camera, canvas_size);
+    let (bottom_right_x, bottom_right_y) = fns::convert_grid_to_screen((entity.x + entity.height / 2., entity.y + entity.height / 2.), camera, canvas_size);
     let dst = Rect::new(top_left_x, top_left_y, (bottom_right_x - top_left_x) as u32, (bottom_right_y - top_left_y) as u32);
-    canvas.copy(circle_texture, None, dst)?;
+    canvas.copy(entity.data.get_texture(textures), None, dst)?;
     Ok(())
 }
 
