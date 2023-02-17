@@ -48,6 +48,26 @@ pub fn convert_single_screen_to_grid (screen_pos: i32, camera_pos: f64, zoom: f6
 
 
 
+pub fn vec_len (x: f64, y: f64) -> f64 {
+    (x * x + y * y).sqrt()
+}
+
+pub fn vec_angle (x: f64, y: f64) -> f64 {
+    y.atan2(x)
+}
+
+
+
+pub fn rect_to_polar (x: f64, y: f64) -> (f64, f64) {
+    (vec_len(x, y), vec_angle(x, y))
+}
+
+pub fn polar_to_rect (l: f64, a: f64) -> (f64, f64) {
+    (a.cos() * l, a.sin() * l)
+}
+
+
+
 
 
 pub fn get_texture_size (texture: &Texture) -> (u32, u32) {

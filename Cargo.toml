@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hashbrown = {version = "0.13.*", features = ["rayon"]}
+hashbrown = {version = "0.13.*", features = ["rayon", "raw"]}
 array-init = "2.1.*"
 lerp = "0.4.*"
 num-traits = "0.2.15"

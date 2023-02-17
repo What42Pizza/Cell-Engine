@@ -1,5 +1,5 @@
 // Started 02/11/23
-// Last updated 02/13/23
+// Last updated 02/15/23
 
 
 
@@ -9,19 +9,25 @@
 
 // nightly features
 #![feature(box_syntax)]
+#![feature(map_many_mut)]
+#![feature(slice_take)]
 
 
 
 // settings
 
-// takes ~22 bytes per empty cell (2^14 x 2^14 takes ~6 GB)
-const GRID_WIDTH: usize = 64;
-const GRID_HEIGHT: usize = 64;
+const GRID_WIDTH: usize = 128;
+const GRID_HEIGHT: usize = 128;
 const MAX_ENTITIES_COUNT: usize = GRID_WIDTH * GRID_HEIGHT / 2;
 
-const CAMERA_SPEED: f64 = 0.5;
+const CAMERA_SPEED: f64 = 0.75;
 const SCROLL_SPEED: f64 = 1.1;
 const MAX_ZOOM_OUT: f64 = 1./128.;
+
+const CELL_DRAG_COEF: f64 = 0.1;
+const CELL_CONNECTION_FORCE: f64 = 10.;
+const CELL_CONNECTION_DRAG: f64 = 0.25;
+const CELL_CONNECTION_DISTANCE: f64 = 1.1;
 
 
 
@@ -31,10 +37,37 @@ mod init;
 mod data_mod;
 mod fns;
 mod prelude;
+mod additions;
 
 
+
+use std::rc::Rc;
 
 use prelude::*;
+
+
+
+
+
+fn add_test_data (program_data: &mut ProgramData) {
+
+    let a = Rc::new(0);
+
+    let mut cell_1 = Cell::new_with_vel(1.5, 1.5, 1.0, 1.0, 0.0, 2.0, -1.0);
+    let mut cell_2 = Cell::new_with_vel(2.5, 1.5, 1.0, 1.0, 0.0, 1.0, 2.0);
+    let mut cell_3 = Cell::new_with_vel(1.5, 2.5, 1.0, 1.0, 0.0, -1.0, 0.0);
+    let cell_1_id = program_data.cells.add_entity(cell_1).unwrap();
+    let cell_2_id = program_data.cells.add_entity(cell_2).unwrap();
+    let cell_3_id = program_data.cells.add_entity(cell_3).unwrap();
+    program_data.cells.master_list.get_mut(&cell_1_id).unwrap().connected_cells.append(&mut vec!(cell_2_id, cell_3_id));
+    program_data.cells.master_list.get_mut(&cell_2_id).unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_3_id));
+    program_data.cells.master_list.get_mut(&cell_3_id).unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_2_id));
+
+    program_data.food.add_entity(Food::new(3.5, 2.5, 1.0));
+
+}
+
+
 
 
 
@@ -48,20 +81,15 @@ pub fn main() -> Result<(), ProgramError> {
 
     let mut program_data = init::init_program_data(&canvas, &texture_creator, &ttf_context)?;
 
-    program_data.world.add_entity(Entity::new(1.5, 1.5, 1., 1.,
-        EntityData::Cell {
-            x_vel: 0.5,
-            y_vel: 0.1,
-        }
-    ));
+    add_test_data(&mut program_data);
 
     let mut last_fps_instant = Instant::now();
     let mut fps_count = 0;
     while !program_data.exit {
 
-        let dt = last_update_instant.elapsed();
+        let dt = last_update_instant.elapsed().as_secs_f64();
         last_update_instant = Instant::now();
-        update::update(&mut program_data, &mut event_pump, &canvas, &dt)?;
+        update::update(&mut program_data, &mut event_pump, &canvas, dt)?;
 
         render::render(&mut canvas, &mut program_data)?;
 

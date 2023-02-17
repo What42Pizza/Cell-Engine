@@ -14,7 +14,7 @@ pub fn init_sdl2() -> (Sdl, Sdl2TtfContext, Canvas<Window>) {
     let sdl_context = sdl2::init().expect("Could not initialize sdl2");
     let _image_context = image::init(InitFlag::PNG).expect("Could not retrieve sdl image context");
     let video_subsystem = sdl_context.video().expect("Could not retrieve video subsystem");
-    let window = video_subsystem.window("SDL2 Testing Window", 1280, 720)
+    let window = video_subsystem.window("Creatures Game", 1280, 720)
         .position_centered()
         .build()
         .expect("Could not build window");
@@ -61,8 +61,8 @@ pub fn init_program_data<'a> (canvas: &Canvas<Window>, texture_creator: &'a Text
         font,
         keys_pressed: HashMap::new(),
 
-        cells_list: HashMap::new(),
-        world: World::new(),
+        cells: EntityContainer::new(),
+        food: EntityContainer::new(),
 
     })
 }
@@ -72,6 +72,8 @@ pub fn init_program_data<'a> (canvas: &Canvas<Window>, texture_creator: &'a Text
 pub fn load_textures (texture_creator: &TextureCreator<WindowContext>) -> Result<ProgramTextures<'_>, String> {
     Ok(ProgramTextures {
         ground: texture_creator.load_texture("assets/ground.png")?,
+        black_ground: texture_creator.load_texture("assets/black_ground.png")?,
+        food: texture_creator.load_texture("assets/food.png")?,
         circle: texture_creator.load_texture("assets/circle.png")?,
     })
 }

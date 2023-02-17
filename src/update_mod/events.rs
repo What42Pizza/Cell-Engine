@@ -8,8 +8,7 @@ pub fn process_events (program_data: &mut ProgramData, event_pump: &mut EventPum
     
     for event in event_pump.poll_iter() {
         match event {
-            Event::Quit {..} |
-            Event::KeyDown {keycode: Some(Keycode::Escape), ..} => program_data.exit = true,
+            Event::Quit {..} | Event::KeyDown {keycode: Some(Keycode::Escape), ..} => program_data.exit = true,
             Event::KeyDown {keycode: Some(keycode), ..} => {program_data.keys_pressed.insert(keycode, ());},
             Event::KeyUp {keycode: Some(keycode), ..} => {program_data.keys_pressed.remove(&keycode);},
             Event::MouseWheel {y, ..} => process_mouse_wheel(program_data, y, &mouse_state, canvas)?,
