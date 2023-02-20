@@ -1,90 +1,82 @@
 use crate::prelude::*;
-use sdl2::keyboard::Keycode;
+use sdl2::{keyboard::Keycode, render::TextureCreator, video::WindowContext};
 
 
 
 pub struct ProgramData<'a> {
 
+    pub start_instant: Instant,
     pub frame_count: u64,
     pub exit: bool,
 
     pub camera: Camera,
-    pub textures: ProgramTextures<'a>,
-    pub font: Font<'a, 'a>,
+    pub selected_entity: EntitySelection,
     pub keys_pressed: HashMap<Keycode, ()>,
+
+    pub textures: ProgramTextures<'a>,
+    pub texture_creator: &'a TextureCreator<WindowContext>,
+    pub font: Font<'a, 'a>,
+    pub text_cache: HashMap<String, Texture<'a>>,
 
     pub cells: EntityContainer<Cell>,
     pub food: EntityContainer<Food>,
 
 }
 
+impl<'a> ProgramData<'a> {
 
-
-
-
-pub struct Cell {
-    pub health: f64,
-    pub energy: f64,
-    pub material: f64,
-    pub x_vel: f64,
-    pub y_vel: f64,
-    pub entity: RawEntity,
-    pub connected_cells: Vec<EntityID>,
-}
-
-impl Cell {
-    pub fn new (x: f64, y: f64, health: f64, energy: f64, material: f64) -> Self {
+    pub fn new (textures: ProgramTextures<'a>, font: Font<'a, 'a>, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
         Self {
-            health,
-            energy,
-            material,
-            x_vel: 0.,
-            y_vel: 0.,
-            entity: RawEntity::new(x, y, 1., 1.),
-            connected_cells: vec!(),
+
+            start_instant: Instant::now(),
+            frame_count: 0,
+            exit: false,
+
+            camera: Camera {
+                x: 0.,
+                y: 0.,
+                zoom: 0.2,
+            },
+            selected_entity: EntitySelection::None,
+            keys_pressed: HashMap::new(),
+
+            textures,
+            texture_creator,
+            font,
+            text_cache: HashMap::new(),
+
+            cells: EntityContainer::new(),
+            food: EntityContainer::new(),
+
         }
     }
-    pub fn new_with_vel (x: f64, y: f64, health: f64, energy: f64, material: f64, x_vel: f64, y_vel: f64) -> Self {
-        Self {
-            health,
-            energy,
-            material,
-            x_vel,
-            y_vel,
-            entity: RawEntity::new(x, y, 1., 1.),
-            connected_cells: vec!(),
-        }
+
+    pub fn key_is_pressed (&self, keycode: Keycode) -> bool {
+        self.keys_pressed.contains_key(&keycode)
     }
-    pub fn pos_change (&self, other: &Cell) -> (f64, f64) {
-        (other.entity.x - self.entity.x, other.entity.y - self.entity.y)
+
+    pub fn ensure_text_is_rendered (&mut self, input: impl Into<String>) -> Result<(), ProgramError> {
+        let input = input.into();
+        if self.text_cache.contains_key(&input) {return Ok(());}
+        let new_texture = self.font
+            .render("Cell Information")
+            .blended(Color::RGB(255, 255, 255))?
+            .as_texture(&self.texture_creator)?;
+        self.text_cache.insert(input, new_texture);
+        Ok(())
     }
-    pub fn vel_change(&self, other: &Cell) -> (f64, f64) {
-        (other.x_vel - self.x_vel, other.y_vel - self.y_vel)
-    }
-    pub fn distance_to (&self, other: &Cell) -> f64 {
-        let (self_x, self_y) = (self.entity.x, self.entity.y);
-        let (other_x, other_y) = (other.entity.x, other.entity.y);
-        let (dx, dy) = (other_x - self_x, other_y - self_y);
-        (dx * dx + dy * dy).sqrt()
-    }
+
 }
 
-impl Entity for Cell {
-    fn get_texture<'a> (&self, textures: &'a ProgramTextures<'a>) -> &'a Texture<'a> {
-        &textures.circle
-    }
-}
 
-impl AsRef<RawEntity> for Cell {
-    fn as_ref (&self) -> &RawEntity {
-        &self.entity
-    }
-}
 
-impl AsMut<RawEntity> for Cell {
-    fn as_mut (&mut self) -> &mut RawEntity {
-        &mut self.entity
-    }
+
+
+#[derive(PartialEq)]
+pub enum EntitySelection {
+    None,
+    Cell (EntityID),
+    Food (EntityID),
 }
 
 
@@ -92,16 +84,22 @@ impl AsMut<RawEntity> for Cell {
 
 
 pub struct Food {
-    pub amount: f64,
+    pub energy: f64,
+    pub material: f64,
     pub entity: RawEntity,
 }
 
 impl Food {
-    pub fn new (x: f64, y: f64, amount: f64) -> Self {
+    pub fn new (x: f64, y: f64, energy: f64, material: f64) -> Self {
+        let size = material / 4. + 0.25;
         Self {
-            amount,
-            entity: RawEntity::new(x, y, 0.5, 0.5),
+            energy,
+            material,
+            entity: RawEntity::new(x, y, size, size),
         }
+    }
+    pub fn from_cell (cell: &Cell) -> Self {
+        Self::new(cell.entity.x, cell.entity.y, cell.energy, cell.material)
     }
 }
 
@@ -140,4 +138,24 @@ pub struct ProgramTextures<'a> {
     pub black_ground: Texture<'a>,
     pub food: Texture<'a>,
     pub circle: Texture<'a>,
+}
+
+
+
+
+
+pub struct FRect {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
+impl FRect {
+    pub fn new (x: f64, y: f64, width: f64, height: f64) -> Self {
+        Self {x, y, width, height}
+    }
+    pub fn to_rect (&self) -> Rect {
+        Rect::new(self.x as i32, self.y as i32, self.width as u32, self.height as u32)
+    }
 }

@@ -2,9 +2,9 @@ use crate::prelude::*;
 
 
 
-// --------------------------------------------------------------------------------------------- //
+//-----------------------------------------------------------------------------------------------//
 // WARNING: RawEntity.curr_grid_ feilds need to stay synced with EntityContainer.entities_by_pos //
-// --------------------------------------------------------------------------------------------- //
+//-----------------------------------------------------------------------------------------------//
 
 pub type EntityID = u32;
 
@@ -17,6 +17,7 @@ pub struct EntityContainer<T: Entity> {
 
 
 pub struct RawEntity {
+    pub should_be_removed: bool,
     pub x: f64,
     pub y: f64,
     pub width: f64,
@@ -28,9 +29,9 @@ pub struct RawEntity {
 
 
 impl RawEntity {
-
     pub fn new (x: f64, y: f64, width: f64, height: f64) -> Self {
         Self {
+            should_be_removed: false,
             x,
             y,
             width,
@@ -39,7 +40,6 @@ impl RawEntity {
             current_grid_y: y as usize,
         }
     }
-
 }
 
 pub trait Entity: AsRef<RawEntity> + AsMut<RawEntity> {
@@ -85,9 +85,22 @@ impl<T: Entity> EntityContainer<T> {
 
     pub fn sync_feilds (&mut self) {
 
+        let keys: Vec<u32> = self.master_list.keys().copied().collect();
+
         // update entities_by_pos
-        for (id, entity) in self.master_list.iter_mut() {
+        for id in keys {
+            let entity = self.master_list.get_mut(&id).unwrap();
             let raw_entity = entity.as_mut();
+
+            // remove if should_be_removed
+            if raw_entity.should_be_removed {
+                let (grid_x, grid_y) = (raw_entity.current_grid_x, raw_entity.current_grid_y);
+                let slot = &mut self.entities_by_pos[grid_x + grid_y * GRID_WIDTH];
+                let slot_pos = fns::find_item_index(slot, &id).unwrap();
+                slot.remove(slot_pos);
+                self.master_list.remove(&id);
+                continue;
+            }
 
             // skip if already synced
             let (old_x, old_y) = (raw_entity.current_grid_x, raw_entity.current_grid_y);
@@ -100,12 +113,12 @@ impl<T: Entity> EntityContainer<T> {
 
             // remove from old slot
             let old_slot = &mut self.entities_by_pos[old_x + old_y * GRID_WIDTH];
-            let entity_index = fns::find_item_index(old_slot, id).unwrap_or_else(|| panic!("An entity was listed as being in slot ({old_x}, {old_y}), but that entity's ID was not in that slot"));
+            let entity_index = fns::find_item_index(old_slot, &id).unwrap_or_else(|| panic!("An entity was listed as being in slot ({old_x}, {old_y}), but that entity's ID was not in that slot"));
             old_slot.remove(entity_index);
 
             // add to new slot
             let new_slot = &mut self.entities_by_pos[new_x + new_y * GRID_WIDTH];
-            new_slot.push(*id);
+            new_slot.push(id);
 
         }
 

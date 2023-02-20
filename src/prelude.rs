@@ -1,5 +1,5 @@
-pub use crate::{*, update_mod::*, additions::*,
-    data_mod::{general_data::*, entity_container::*, errors::*},
+pub use crate::{*, update_mod::*, render_mod::*, additions::*,
+    data_mod::{general_data::*, cell::*, entity_container::*, errors::*},
 };
 
 pub use std::{fmt, fs,

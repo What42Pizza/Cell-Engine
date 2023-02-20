@@ -1,10 +1,11 @@
 use crate::prelude::*;
-use sdl2::render::{WindowCanvas, Texture};
+use sdl2::render::WindowCanvas;
+
+
 
 
 
 pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Result<(), ProgramError> {
-    let textures = &program_data.textures;
     let canvas_size = canvas.output_size()?;
     let camera = &program_data.camera;
 
@@ -14,8 +15,9 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
     let (start_grid_x, start_grid_y) = (program_data.camera.x.floor() as isize, program_data.camera.y.floor() as isize);
     let (end_grid_x, end_grid_y);
 
-    let start_instant = Instant::now();
-    'draw_ground: {
+    //let start_instant = Instant::now();
+    { // draw_ground
+        let textures = &program_data.textures;
         let zoom = program_data.camera.zoom;
         let start_curr_x = fns::convert_single_grid_to_screen(start_grid_x as f64, camera.x, zoom, canvas_size);
         let start_next_x = fns::convert_single_grid_to_screen(start_grid_x as f64 + 1., camera.x, zoom, canvas_size);
@@ -51,10 +53,8 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
     }
     //println!("{}", start_instant.elapsed().as_micros());
 
-    //let (start_grid_x, start_grid_y) = (start_grid_x as isize, start_grid_y as isize);
-    //let (end_grid_x, end_grid_y) = (end_grid_x as isize, end_grid_y as isize);
-
-    'draw_entities: {
+    { // draw entities
+        let textures = &program_data.textures;
         let start_grid_x = (start_grid_x - 1).max(0);
         let start_grid_y = (start_grid_y - 1).max(0);
         let end_grid_x = (end_grid_x + 1).min(GRID_WIDTH  as isize - 1);
@@ -66,6 +66,13 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
                 draw_entities(x, y, &program_data.food, camera, canvas, canvas_size, textures)?;
             }
         }
+    }
+
+    // draw selected entity information
+    match program_data.selected_entity {
+        EntitySelection::None => {}
+        EntitySelection::Cell (entity_id) => draw_cell_information(entity_id, program_data, canvas, canvas_size)?,
+        EntitySelection::Food (entity_id) => {}
     }
 
     // finish
@@ -100,23 +107,13 @@ pub fn get_entity_rect (entity: &RawEntity, camera: &Camera, canvas_size: (u32, 
 
 
 
-pub fn clamp_to_section (rect: &Rect, section: &Rect) -> (Rect, Rect) {
-    let (lx, ly) = (rect.x, rect.y);
-    let (width, height) = (rect.width(), rect.height());
-    let (hx, hy) = (lx + width as i32, ly + height as i32);
-    let (section_lx, section_ly) = (section.x(), section.y());
-    let (section_width, section_height) = (section.width(), section.height());
+pub fn draw_cell_information (entity_id: EntityID, program_data: &mut ProgramData, canvas: &mut WindowCanvas, canvas_size: (u32, u32)) -> Result<(), ProgramError> {
 
-    let shown_lx = lx.max(0);
-    let shown_ly = ly.max(0);
-    let shown_hx = hx.min(section_width as i32);
-    let shown_hy = hy.min(section_height as i32);
-    let src_lx = shown_lx - lx;
-    let src_ly = shown_ly - ly;
-    let src_hx = shown_hx - hx + width as i32;
-    let src_hy = shown_hy - hy + height as i32;
+    let (width, height) = (canvas_size.0 as f64, canvas_size.1 as f64);
+    let section = FRect::new(width - height * 0.43, height * 0.03, height * 0.4, height * 0.94);
+    render_fns::draw_menu_background(section.to_rect(), canvas)?;
 
-    let src = Rect::new(src_lx, src_ly, (src_hx - src_lx) as u32, (src_hy - src_ly) as u32);
-    let dest = Rect::new(shown_lx + section_lx, shown_ly + section_ly, (shown_hx - shown_lx) as u32, (shown_hy - shown_ly) as u32);
-    (src, dest)
+    program_data.ensure_text_is_rendered("Cell Information")?;
+
+    Ok(())
 }

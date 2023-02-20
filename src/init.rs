@@ -41,30 +41,13 @@ pub fn init_sdl2() -> (Sdl, Sdl2TtfContext, Canvas<Window>) {
 pub fn init_program_data<'a> (canvas: &Canvas<Window>, texture_creator: &'a TextureCreator<WindowContext>, ttf_context: &'a Sdl2TtfContext) -> Result<ProgramData<'a>, ProgramError> {
     let (width, height) = canvas.output_size()?;
 
-    let textures = load_textures(texture_creator)?;
+    let textures = load_textures(&texture_creator)?;
 
     let mut font_path = fns::get_program_dir();
     font_path.push("JetBrainsMono-Regular_0.ttf");
     let font = ttf_context.load_font(font_path, height as u16 * 3 / 100)?;
 
-    Ok(ProgramData {
-
-        exit: false,
-        frame_count: 0,
-
-        camera: Camera {
-            x: 0.,
-            y: 0.,
-            zoom: 0.2,
-        },
-        textures,
-        font,
-        keys_pressed: HashMap::new(),
-
-        cells: EntityContainer::new(),
-        food: EntityContainer::new(),
-
-    })
+    Ok(ProgramData::new(textures, font, texture_creator))
 }
 
 

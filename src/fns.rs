@@ -1,19 +1,4 @@
 use crate::prelude::*;
-use std::fs::OpenOptions;
-use sdl2::{render::{TextureCreator, TextureValueError}, video::WindowContext, surface::Surface};
-
-
-
-
-
-pub fn find_item_index<T: PartialEq> (input: &[T], item: &T) -> Option<usize> {
-    for (i, curr_item) in input.iter().enumerate() {
-        if curr_item == item {
-            return Some(i);
-        }
-    }
-    None
-}
 
 
 
@@ -48,10 +33,63 @@ pub fn convert_single_screen_to_grid (screen_pos: i32, camera_pos: f64, zoom: f6
 
 
 
-pub fn vec_len (x: f64, y: f64) -> f64 {
-    (x * x + y * y).sqrt()
+
+
+pub fn get_entity_ids_near_pos<T: Entity> (grid_pos: (usize, usize), entities: &EntityContainer<T>) -> Vec<EntityID> {
+    let mut output = vec!();
+    let (start_x, start_y) = (grid_pos.0.max(1) - 1             , grid_pos.1.max(1) - 1              );
+    let (end_x  , end_y  ) = (grid_pos.0.min(GRID_WIDTH - 2) + 1, grid_pos.1.min(GRID_HEIGHT - 2) + 1);
+    for x in start_x..=end_x {
+        for y in start_y..=end_y {
+            let slot_ids = &entities.entities_by_pos[x + y * GRID_WIDTH];
+            for &id in slot_ids {
+                output.push(id);
+            }
+        }
+    }
+    output
 }
 
+
+
+
+
+pub fn get_program_dir() -> PathBuf {
+    let mut path = std::env::current_exe()
+        .expect("Could not retrieve the path for the current exe.");
+    path.pop();
+    path
+}
+
+
+
+pub fn find_item_index<T: PartialEq> (input: &[T], item: &T) -> Option<usize> {
+    for (i, curr_item) in input.iter().enumerate() {
+        if curr_item == item {
+            return Some(i);
+        }
+    }
+    None
+}
+
+
+
+// taken from https://stackoverflow.com/a/3122532
+pub fn move_point_to_line (input: (f64, f64), line: (f64, f64)) -> (f64, f64) {
+    // input is a_to_p, line is a_to_b, a is assumed to be 0, 0
+    let squared_mag = line.0 * line.0 + line.1 * line.1;
+    let input_dot_line = input.0 * line.0 + input.1 * line.1;
+    let multiplier = input_dot_line / squared_mag;
+    (line.0 * multiplier, line.1 * multiplier)
+}
+
+
+
+pub fn vec_len (input: (f64, f64)) -> f64 {
+    (input.0 * input.0 + input.1 * input.1).sqrt()
+}
+
+/*
 pub fn vec_angle (x: f64, y: f64) -> f64 {
     y.atan2(x)
 }
@@ -82,15 +120,6 @@ pub fn get_spritesheet_src_from_index (spritesheet: &Texture, index: u32, sprite
     let row_num = index % sprites_per_row;
     let column_num = index / sprites_per_row;
     Rect::new((row_num * sprite_width) as i32, (column_num * sprite_height) as i32, sprite_width, sprite_height)
-}
-
-
-
-pub fn get_program_dir() -> PathBuf {
-    let mut path = std::env::current_exe()
-        .expect("Could not retrieve the path for the current exe.");
-    path.pop();
-    path
 }
 
 
@@ -131,3 +160,4 @@ pub fn blend_colors (color1: Color, color2: Color, blend_amount: f64) -> Color {
 pub fn get_empty_texture (texture_creator: &TextureCreator<WindowContext>) -> Result<Texture<'_>, TextureValueError> {
     texture_creator.create_texture_from_surface(Surface::new(1, 1, sdl2::pixels::PixelFormatEnum::ARGB8888).unwrap())
 }
+*/

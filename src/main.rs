@@ -1,5 +1,5 @@
 // Started 02/11/23
-// Last updated 02/15/23
+// Last updated 02/20/23
 
 
 
@@ -14,7 +14,7 @@
 
 
 
-// settings
+// General Settings
 
 const GRID_WIDTH: usize = 128;
 const GRID_HEIGHT: usize = 128;
@@ -24,15 +24,38 @@ const CAMERA_SPEED: f64 = 0.75;
 const SCROLL_SPEED: f64 = 1.1;
 const MAX_ZOOM_OUT: f64 = 1./128.;
 
+// Cell Settings
+
 const CELL_DRAG_COEF: f64 = 0.1;
-const CELL_CONNECTION_FORCE: f64 = 10.;
-const CELL_CONNECTION_DRAG: f64 = 0.25;
+const CELL_CONNECTION_FORCE: f64 = 10.0;
+const CELL_CONNECTION_DRAG: f64 = 3.0;
 const CELL_CONNECTION_DISTANCE: f64 = 1.1;
+const CELL_INTERSECTION_FORCE: f64 = 100.0;
+
+const CELL_ENERGY_USE_RATE: f64 = 0.001;
+const CELL_HEALING_RATE: f64 = 0.1;
+const CELL_HEALING_ENERGY_COST: f64 = 0.2;
+const CELL_HEALING_MATERIAL_COST: f64 = 0.5;
+const CELL_ENERGY_TRANSFER_RATE: f64 = 0.25;
+const CELL_MATERIAL_TRANSFER_RATE: f64 = 0.1;
+
+// Cell Type Settings
+
+const CELL_FAT_ENERGY_STORE_THRESHOLD: f64 = 0.75;
+const CELL_FAT_ENERGY_RELEASE_THRESHOLD: f64 = 0.5;
+const CELL_FAT_ENERGY_STORE_RATE: f64 = 0.01;
+const CELL_FAT_ENERGY_RELEASE_RATE: f64 = 0.01;
+const CELL_FAT_MATERIAL_STORE_THRESHOLD: f64 = 0.75;
+const CELL_FAT_MATERIAL_RELEASE_THRESHOLD: f64 = 0.5;
+const CELL_FAT_MATERIAL_STORE_RATE: f64 = 0.01;
+const CELL_FAT_MATERIAL_RELEASE_RATE: f64 = 0.01;
+
+const CELL_PHOTOSYNTHESISER_RATE: f64 = 0.025;
 
 
 
 mod update_mod;
-mod render;
+mod render_mod;
 mod init;
 mod data_mod;
 mod fns;
@@ -40,8 +63,6 @@ mod prelude;
 mod additions;
 
 
-
-use std::rc::Rc;
 
 use prelude::*;
 
@@ -51,11 +72,9 @@ use prelude::*;
 
 fn add_test_data (program_data: &mut ProgramData) {
 
-    let a = Rc::new(0);
-
-    let mut cell_1 = Cell::new_with_vel(1.5, 1.5, 1.0, 1.0, 0.0, 2.0, -1.0);
-    let mut cell_2 = Cell::new_with_vel(2.5, 1.5, 1.0, 1.0, 0.0, 1.0, 2.0);
-    let mut cell_3 = Cell::new_with_vel(1.5, 2.5, 1.0, 1.0, 0.0, -1.0, 0.0);
+    let cell_1 = Cell::new_with_vel(RawCell::Fat {extra_energy: 0.0, extra_material: 0.0}, 1.5, 1.5, 1.0, 1.0, 0.0, 5.0, 0.0);
+    let cell_2 = Cell::new_with_vel(RawCell::Fat {extra_energy: 0.0, extra_material: 0.0}, 2.5, 1.7, 1.0, 1.0, 0.0, -5.0, 5.0);
+    let cell_3 = Cell::new_with_vel(RawCell::Fat {extra_energy: 0.0, extra_material: 0.0}, 1.7, 2.5, 1.0, 1.0, 0.0, 0.0, -5.0);
     let cell_1_id = program_data.cells.add_entity(cell_1).unwrap();
     let cell_2_id = program_data.cells.add_entity(cell_2).unwrap();
     let cell_3_id = program_data.cells.add_entity(cell_3).unwrap();
@@ -63,7 +82,7 @@ fn add_test_data (program_data: &mut ProgramData) {
     program_data.cells.master_list.get_mut(&cell_2_id).unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_3_id));
     program_data.cells.master_list.get_mut(&cell_3_id).unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_2_id));
 
-    program_data.food.add_entity(Food::new(3.5, 2.5, 1.0));
+    program_data.food.add_entity(Food::new(3.5, 2.5, 1.0, 1.0));
 
 }
 
@@ -72,6 +91,7 @@ fn add_test_data (program_data: &mut ProgramData) {
 
 
 pub fn main() -> Result<(), ProgramError> {
+    //env::set_var("RUST_BACKTRACE", "1");
     let mut last_update_instant = Instant::now();
 
     // sdl
@@ -87,7 +107,7 @@ pub fn main() -> Result<(), ProgramError> {
     let mut fps_count = 0;
     while !program_data.exit {
 
-        let dt = last_update_instant.elapsed().as_secs_f64();
+        let dt = last_update_instant.elapsed().as_secs_f64().clamp(0.01, 0.02);
         last_update_instant = Instant::now();
         update::update(&mut program_data, &mut event_pump, &canvas, dt)?;
 

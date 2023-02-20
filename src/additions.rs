@@ -1,4 +1,4 @@
-use std::{ptr, hash::BuildHasher, ops::{Deref, DerefMut}};
+use std::{ptr, hash::BuildHasher};
 use hashbrown::{hash_map::DefaultHashBuilder, HashMap, Equivalent};
 use std::hash::Hash;
 
@@ -6,24 +6,25 @@ use std::hash::Hash;
 
 
 
-pub trait HashMapAdditions<K, V> {
-    fn get_many_mut_vec<'b, Q: ?Sized + Hash + Equivalent<K>> (&'b mut self, keys: Vec<&Q>) -> Option<Vec<&'b mut V>>;
-    fn build_hashes<Q: ?Sized + Hash + Equivalent<K>> (&self, keys: &Vec<&Q>) -> Vec<u64>;
-    fn make_hash<Q: ?Sized + Hash + Equivalent<K>> (val: &Q) -> u64;
+// TODO: check on https://github.com/rust-lang/hashbrown/issues/332
+pub trait HashMapAdditions<K, V, Q: ?Sized + Hash + Equivalent<K>> {
+    fn get_many_mut_vec<'b> (&'b mut self, keys: &[&Q]) -> Option<Vec<&'b mut V>>;
+    fn build_hashes (&self, keys: &[&Q]) -> Vec<u64>;
+    fn make_hash (val: &Q) -> u64;
 }
 
 
 
-impl<'a, K: 'a, V> HashMapAdditions<K, V> for HashMap<K, V> {
+impl<'a, K: 'a, V, Q: ?Sized + Hash + Equivalent<K>> HashMapAdditions<K, V, Q> for HashMap<K, V> {
 
-    fn get_many_mut_vec<'b, Q: ?Sized + Hash + Equivalent<K>> (&'b mut self, keys: Vec<&Q>) -> Option<Vec<&'b mut V>> {
-        let hashes = <hashbrown::HashMap<K, V> as HashMapAdditions<K, V>>::build_hashes(self, &keys);
-        let mut output: Vec<&mut (K, V)> = vec!();
+    fn get_many_mut_vec<'b> (&'b mut self, keys: &[&Q]) -> Option<Vec<&'b mut V>> {
+        let hashes = Self::build_hashes(self, keys);
+        let mut output: Vec<&mut (K, V)> = Vec::with_capacity(keys.len());
 
         let raw_table = self.raw_table();
         unsafe {
             for (i, &hash) in hashes.iter().enumerate() {
-                let cur = raw_table.find(hash, |(k, v)| keys[i].equivalent(k))?;
+                let cur = raw_table.find(hash, |(k, _)| keys[i].equivalent(k))?;
                 output.push(cur.as_mut());
             }
         }
@@ -35,21 +36,21 @@ impl<'a, K: 'a, V> HashMapAdditions<K, V> for HashMap<K, V> {
         }
 
         let output = output.into_iter()
-            .map(|(k, v)| v)
+            .map(|(_, v)| v)
             .collect::<Vec<&mut V>>();
 
         Some(output)
     }
 
-    fn build_hashes<Q: ?Sized + Hash + Equivalent<K>> (&self, keys: &Vec<&Q>) -> Vec<u64> {
+    fn build_hashes (&self, keys: &[&Q]) -> Vec<u64> {
         let mut hashes = Vec::with_capacity(keys.len());
-        for i in 0..keys.len() {
-            hashes.push(Self::make_hash(keys[i]));
+        for &key in keys {
+            hashes.push(Self::make_hash(key));
         }
         hashes
     }
 
-    fn make_hash<Q: ?Sized + Hash + Equivalent<K>> (val: &Q) -> u64 {
+    fn make_hash (val: &Q) -> u64 {
         use core::hash::Hasher;
         let mut state = DefaultHashBuilder::default().build_hasher();
         val.hash(&mut state);
