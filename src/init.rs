@@ -1,15 +1,16 @@
 use crate::prelude::*;
-use sdl2::{Sdl, ttf::Sdl2TtfContext,
+use sdl2::{Sdl,
     image::{self, LoadTexture, InitFlag},
     render::{Canvas, TextureCreator},
     video::{Window, WindowContext}
 };
+use ab_glyph::FontVec;
 
 
 
 
 
-pub fn init_sdl2() -> (Sdl, Sdl2TtfContext, Canvas<Window>) {
+pub fn init_sdl2() -> (Sdl, Canvas<Window>) {
 
     let sdl_context = sdl2::init().expect("Could not initialize sdl2");
     let _image_context = image::init(InitFlag::PNG).expect("Could not retrieve sdl image context");
@@ -29,23 +30,22 @@ pub fn init_sdl2() -> (Sdl, Sdl2TtfContext, Canvas<Window>) {
     canvas.clear();
     canvas.present();
 
-    let ttf_context = sdl2::ttf::init().expect("Could not initialize sdl2::ttf");
-
-    (sdl_context, ttf_context, canvas)
+    (sdl_context, canvas)
 }
 
 
 
 
 
-pub fn init_program_data<'a> (canvas: &Canvas<Window>, texture_creator: &'a TextureCreator<WindowContext>, ttf_context: &'a Sdl2TtfContext) -> Result<ProgramData<'a>, ProgramError> {
+pub fn init_program_data<'a> (canvas: &Canvas<Window>, texture_creator: &'a TextureCreator<WindowContext>) -> Result<ProgramData<'a>, ProgramError> {
     let (width, height) = canvas.output_size()?;
 
     let textures = load_textures(&texture_creator)?;
 
     let mut font_path = fns::get_program_dir();
     font_path.push("JetBrainsMono-Regular_0.ttf");
-    let font = ttf_context.load_font(font_path, height as u16 * 3 / 100)?;
+    let raw_font_bytes = fs::read(font_path).expect("Could not load the given font (fs::read error)");
+    let font = FontVec::try_from_vec(raw_font_bytes).expect("Could not load the given font (FontVec::try_from_vec error)");
 
     Ok(ProgramData::new(textures, font, texture_creator))
 }

@@ -1,5 +1,6 @@
 use crate::prelude::*;
-use sdl2::{keyboard::Keycode, render::TextureCreator, video::WindowContext};
+use sdl2::{keyboard::Keycode, render::{TextureCreator, WindowCanvas}, video::WindowContext, surface::Surface};
+use ab_glyph::FontVec;
 
 
 
@@ -15,8 +16,8 @@ pub struct ProgramData<'a> {
 
     pub textures: ProgramTextures<'a>,
     pub texture_creator: &'a TextureCreator<WindowContext>,
-    pub font: Font<'a, 'a>,
-    pub text_cache: HashMap<String, Texture<'a>>,
+    pub font: FontVec,
+    pub glyph_cache: GlyphCache<'a>,
 
     pub cells: EntityContainer<Cell>,
     pub food: EntityContainer<Food>,
@@ -25,7 +26,7 @@ pub struct ProgramData<'a> {
 
 impl<'a> ProgramData<'a> {
 
-    pub fn new (textures: ProgramTextures<'a>, font: Font<'a, 'a>, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
+    pub fn new (textures: ProgramTextures<'a>, font: FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
         Self {
 
             start_instant: Instant::now(),
@@ -43,7 +44,7 @@ impl<'a> ProgramData<'a> {
             textures,
             texture_creator,
             font,
-            text_cache: HashMap::new(),
+            glyph_cache: HashMap::new(),
 
             cells: EntityContainer::new(),
             food: EntityContainer::new(),
@@ -55,18 +56,11 @@ impl<'a> ProgramData<'a> {
         self.keys_pressed.contains_key(&keycode)
     }
 
-    pub fn ensure_text_is_rendered (&mut self, input: impl Into<String>) -> Result<(), ProgramError> {
-        let input = input.into();
-        if self.text_cache.contains_key(&input) {return Ok(());}
-        let new_texture = self.font
-            .render("Cell Information")
-            .blended(Color::RGB(255, 255, 255))?
-            .as_texture(&self.texture_creator)?;
-        self.text_cache.insert(input, new_texture);
-        Ok(())
-    }
-
 }
+
+
+
+pub type GlyphCache<'a> = HashMap<HashableGlyph, GlyphTexture<'a>>;
 
 
 
@@ -77,6 +71,33 @@ pub enum EntitySelection {
     None,
     Cell (EntityID),
     Food (EntityID),
+}
+
+
+
+#[derive(Hash, Eq, PartialEq)]
+pub struct HashableGlyph {
+    pub glyph_id: GlyphId,
+    pub scale_x: u32,
+    pub scale_y: u32,
+}
+
+impl HashableGlyph {
+    pub fn from_glyph (glyph: &Glyph) -> Self {
+        Self {
+            glyph_id: glyph.id,
+            scale_x: glyph.scale.x as u32,
+            scale_y: glyph.scale.y as u32,
+        }
+    }
+}
+
+
+
+pub struct GlyphTexture<'a> {
+    pub texture: Texture<'a>,
+    pub origin_x: i32,
+    pub origin_y: i32,
 }
 
 
@@ -144,18 +165,69 @@ pub struct ProgramTextures<'a> {
 
 
 
-pub struct FRect {
+#[derive(Debug)]
+pub struct Area {
+    pub screen_size: (u32, u32),
     pub x: f64,
     pub y: f64,
     pub width: f64,
     pub height: f64,
 }
 
-impl FRect {
-    pub fn new (x: f64, y: f64, width: f64, height: f64) -> Self {
-        Self {x, y, width, height}
+impl Area {
+
+    pub fn new (screen_size: (u32, u32)) -> Self {
+        Self {
+            screen_size,
+            x: 0.,
+            y: 0.,
+            width: 1.,
+            height: 1.,
+        }
     }
+
+    pub fn get_basic_sub_area (&self, x: f64, y: f64, width: f64, height: f64) -> Self {
+        Self {
+            screen_size: self.screen_size,
+            x: self.x + x * self.width,
+            y: self.y + y * self.height,
+            width:  width  * self.width,
+            height: height * self.height,
+        }
+    }
+
+    pub fn get_sub_area (&self, x: f64, y: f64, width: f64, height: f64, natural_x: f64, natural_width: f64) -> Self {
+        let aspect_ratio = (self.screen_size.0 as f64 / self.screen_size.1 as f64) * (self.width / self.height);
+        Self {
+            screen_size: self.screen_size,
+            x: self.x + x * self.width + natural_x * self.width / aspect_ratio,
+            y: self.y + y * self.height,
+            width:  width  * self.width + natural_width * self.width / aspect_ratio,
+            height: height * self.height,
+        }
+    }
+
+    pub fn get_point (&self, x: f64, y: f64, natural_x: f64) -> (i32, i32) {
+        let aspect_ratio = (self.screen_size.0 as f64 / self.screen_size.1 as f64) * (self.width / self.height);
+        let mut point_x = self.x + x * self.width + natural_x * self.width / aspect_ratio;
+        let mut point_y = self.y + y * self.height;
+        point_x *= self.screen_size.0 as f64;
+        point_y *= self.screen_size.1 as f64;
+        (point_x.round() as i32, point_y.round() as i32)
+    }
+
     pub fn to_rect (&self) -> Rect {
-        Rect::new(self.x as i32, self.y as i32, self.width as u32, self.height as u32)
+        let x = self.x * self.screen_size.0 as f64;
+        let y = self.y * self.screen_size.1 as f64;
+        let width  = self.width  * self.screen_size.0 as f64;
+        let height = self.height * self.screen_size.1 as f64;
+        let end_x = x + width;
+        let end_y = y + height;
+        let final_x = x.round() as i32;
+        let final_y = y.round() as i32;
+        let final_width = (end_x.round() as i32) - final_x;
+        let final_height = (end_y.round() as i32) - final_y;
+        Rect::new(final_x, final_y, final_width as u32, final_height as u32)
     }
+
 }

@@ -8,6 +8,7 @@ hashbrown = {version = "0.13.*", features = ["rayon", "raw"]}
 array-init = "2.1.*"
 lerp = "0.4.*"
 num-traits = "0.2.15"
+ab_glyph = "0.2.20"
 #serde-hjson = "0.9.*"
 #regex = "1.7.*"
 #derive_is_enum_variant = "0.1.*"
@@ -17,4 +18,4 @@ num-traits = "0.2.15"
 [dependencies.sdl2]
 version = "0.35.*"
 default-features = false
-features = ["image", "ttf"]
+features = ["image"]#, "ttf"]

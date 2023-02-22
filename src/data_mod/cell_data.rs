@@ -86,6 +86,47 @@ impl AsMut<RawEntity> for Cell {
 
 
 pub enum RawCell {
-    Fat {extra_energy: f64, extra_material: f64},
+
+    Fat (FatCellData),
+
     Photosynthesiser,
+
+}
+
+impl RawCell {
+
+    pub fn new_fat_cell() -> Self {
+        Self::Fat (FatCellData {
+            extra_energy: 0.0,
+            extra_material: 0.0,
+            energy_store_threshold: CELL_FAT_ENERGY_STORE_THRESHOLD.2,
+            energy_release_threshold: CELL_FAT_ENERGY_RELEASE_THRESHOLD.2,
+            energy_store_rate: CELL_FAT_ENERGY_STORE_RATE.2,
+            energy_release_rate: CELL_FAT_ENERGY_RELEASE_RATE.2,
+            material_store_threshold: CELL_FAT_MATERIAL_STORE_THRESHOLD.2,
+            material_release_threshold: CELL_FAT_MATERIAL_RELEASE_THRESHOLD.2,
+            material_store_rate: CELL_FAT_MATERIAL_STORE_RATE.2,
+            material_release_rate: CELL_FAT_MATERIAL_RELEASE_RATE.2,
+        })
+    }
+
+    pub fn new_photosynthesiser_cell() -> Self {
+        Self::Photosynthesiser
+    }
+
+}
+
+
+
+pub struct FatCellData {
+    pub extra_energy: f64,
+    pub extra_material: f64,
+    pub energy_store_threshold: f64,
+    pub energy_release_threshold: f64,
+    pub energy_store_rate: f64,
+    pub energy_release_rate: f64,
+    pub material_store_threshold: f64,
+    pub material_release_threshold: f64,
+    pub material_store_rate: f64,
+    pub material_release_rate: f64,
 }

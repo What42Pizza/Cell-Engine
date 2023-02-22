@@ -1,46 +1,45 @@
 use crate::prelude::*;
-use sdl2::{ttf::FontError, render::TextureValueError};
+use sdl2::render::{TextureValueError, UpdateTextureError};
+use ab_glyph::InvalidFont;
 
 
 
 #[derive(Debug)]
-pub struct ProgramError {
-    pub raw: RawProgramError,
+pub enum ProgramError {
+
+    GlyphRenderError {
+        glyph: Glyph,
+    },
+
+    String (String),
+    TextureValueError (TextureValueError),
+    UpdateTextureError (UpdateTextureError),
+    InvalidFont (InvalidFont),
+
 }
 
 
 
 impl From<String> for ProgramError {
-    fn from(input: String) -> ProgramError {
-        Self {
-            raw: RawProgramError::String(input),
-        }
-    }
-}
-
-impl From<FontError> for ProgramError {
-    fn from(input: FontError) -> ProgramError {
-        Self {
-            raw: RawProgramError::FontError(input),
-        }
+    fn from(input: String) -> Self {
+        Self::String(input)
     }
 }
 
 impl From<TextureValueError> for ProgramError {
-    fn from(input: TextureValueError) -> ProgramError {
-        Self {
-            raw: RawProgramError::TextureValueError(input),
-        }
+    fn from(input: TextureValueError) -> Self {
+        Self::TextureValueError(input)
     }
 }
 
+impl From<UpdateTextureError> for ProgramError {
+    fn from(input: UpdateTextureError) -> Self {
+        Self::UpdateTextureError(input)
+    }
+}
 
-
-#[derive(Debug)]
-pub enum RawProgramError {
-
-    String (String),
-    FontError (FontError),
-    TextureValueError (TextureValueError),
-
+impl From<InvalidFont> for ProgramError {
+    fn from(input: InvalidFont) -> Self {
+        Self::InvalidFont(input)
+    }
 }

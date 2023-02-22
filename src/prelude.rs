@@ -1,5 +1,5 @@
 pub use crate::{*, update_mod::*, render_mod::*, additions::*,
-    data_mod::{general_data::*, cell::*, entity_container::*, errors::*},
+    data_mod::{general_data::*, cell_data::*, entity_container::*, errors::*},
 };
 
 pub use std::{fmt, fs,
@@ -10,7 +10,8 @@ pub use std::{fmt, fs,
     sync::{Arc, Mutex, MutexGuard},
 };
 
-pub use sdl2::{render::Texture, rect::{Rect, Point}, ttf::Font, pixels::Color};
+pub use sdl2::{render::Texture, rect::Rect, pixels::Color};
+pub use ab_glyph::*;
 pub use hashbrown::*;
 pub use array_init::array_init;
 pub use num_traits::*;

@@ -1,4 +1,4 @@
-use sdl2::render::WindowCanvas;
+use sdl2::{render::{WindowCanvas, TextureCreator}, sys::Window, video::WindowContext};
 
 use crate::prelude::*;
 
@@ -22,6 +22,104 @@ pub fn draw_menu_background (rect: Rect, canvas: &mut WindowCanvas) -> Result<()
     canvas.fill_rect(Rect::new(rect.x + rect.w - border_width as i32, rect.y, border_width, rect.h as u32))?; // right
 
     Ok(())
+}
+
+
+
+
+
+pub fn draw_text<'a, 'b> (text: impl AsRef<str>, text_pos: (i32, i32), x_align: f64, size: u32, canvas: &mut WindowCanvas, glyph_cache: &mut GlyphCache<'a>, font: &FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Result<(), ProgramError> {
+    let text = text.as_ref();
+    let glyphs = text.chars()
+        .map(|c| {
+            font
+                .glyph_id(c)
+                .with_scale(PxScale::from(size as f32))
+        })
+        .collect::<Vec<Glyph>>();
+
+    // ensure glyphs are rendered
+    for glyph in &glyphs {
+        ensure_glyph_is_rendered(glyph, (glyph_cache, font, texture_creator))?;
+    }
+
+    // get text positioning
+    let mut glyph_positions = Vec::with_capacity(glyphs.len());
+    let mut current_x = 0;
+    let scaled_font = font.as_scaled(PxScale::from(size as f32));
+    for glyph in &glyphs {
+        glyph_positions.push(current_x);
+        current_x += scaled_font.h_advance(glyph.id) as u32;
+    }
+    glyph_positions.push(current_x);
+    let width = current_x;
+    let left_x = text_pos.0 - (width as f64 * x_align) as i32;
+
+    // place text
+    for (i, glyph) in glyphs.iter().enumerate() {
+        let texture = glyph_cache.get(&HashableGlyph::from_glyph(&glyph)).unwrap();
+        let texture_size = fns::get_texture_size(&texture.texture);
+        let dst = Rect::new(left_x + glyph_positions[i] as i32 + texture.origin_x, text_pos.1 + texture.origin_y + size as i32, texture_size.0, texture_size.1);
+        canvas.copy(&texture.texture, None, dst)?;
+    }
+
+    Ok(())
+}
+
+
+
+pub fn ensure_glyph_is_rendered<'a> (glyph: &Glyph, draw_data: (&mut GlyphCache<'a>, &FontVec, &'a TextureCreator<WindowContext>)) -> Result<(), ProgramError> {//, glyph_cache: &mut GlyphCache<'a>, font: &FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Result<(), ProgramError> {
+    let (glyph_cache, font, texture_creator) = draw_data;
+
+    // return if already rendered
+    let hashable_glyph = HashableGlyph::from_glyph(glyph);
+    if glyph_cache.contains_key(&hashable_glyph) {return Ok(());}
+
+    let texture = render_fns::render_glyph(glyph, font, texture_creator)?;
+
+    // cache
+    glyph_cache.insert(hashable_glyph, texture);
+
+    Ok(())
+}
+
+
+
+
+
+pub fn render_glyph<'a> (glyph: &Glyph, font: &FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Result<GlyphTexture<'a>, ProgramError> {
+
+    // get render data
+    let glyph_outline = match font.outline_glyph(glyph.clone()) {
+        Some(v) => v,
+        None => {
+            let texture = fns::create_texture(glyph.scale.x as u32, glyph.scale.y as u32, texture_creator);
+            return Ok(GlyphTexture {texture, origin_x: 0, origin_y: 0});
+        },
+    };
+    let min = glyph_outline.px_bounds().min;
+    let max = glyph_outline.px_bounds().max;
+    let (width, height) = ((max.x - min.x) as usize, (max.y - min.y) as usize);
+
+    // render to vec
+    let mut pixel_data = Vec::with_capacity(width * height);
+    glyph_outline.draw(|x, y, c| {
+        let index = x as usize + y as usize * width;
+        pixel_data.push(255);
+        pixel_data.push(255);
+        pixel_data.push(255);
+        pixel_data.push((c * 255.) as u8);
+    });
+
+    // vec -> texture
+    let mut texture = fns::create_texture(width as u32, height as u32, texture_creator);
+    texture.update(None, &pixel_data, width * 4)?;
+
+    Ok(GlyphTexture {
+        texture,
+        origin_x: min.x as i32,
+        origin_y: min.y as i32,
+    })
 }
 
 

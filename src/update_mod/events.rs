@@ -64,7 +64,7 @@ pub fn process_mouse_click (program_data: &mut ProgramData, mouse_button: MouseB
     
     let clicked_item = get_screen_item_at_pos(x, y, program_data, canvas)?;
     match clicked_item {
-        ScreenItem::None => {}
+        ScreenItem::None => program_data.selected_entity = EntitySelection::None,
         ScreenItem::Cell (entity_id) => program_data.selected_entity = EntitySelection::Cell(entity_id),
         ScreenItem::Food (entity_id) => program_data.selected_entity = EntitySelection::Food(entity_id),
     }

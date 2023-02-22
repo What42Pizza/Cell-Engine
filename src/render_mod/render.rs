@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use sdl2::render::WindowCanvas;
+use sdl2::{render::{WindowCanvas, TextureCreator}, surface::Surface, video::WindowContext};
 
 
 
@@ -107,13 +107,60 @@ pub fn get_entity_rect (entity: &RawEntity, camera: &Camera, canvas_size: (u32, 
 
 
 
-pub fn draw_cell_information (entity_id: EntityID, program_data: &mut ProgramData, canvas: &mut WindowCanvas, canvas_size: (u32, u32)) -> Result<(), ProgramError> {
+pub fn draw_cell_information (cell_id: EntityID, program_data: &mut ProgramData, canvas: &mut WindowCanvas, canvas_size: (u32, u32)) -> Result<(), ProgramError> {
+    let cell = program_data.cells.master_list.get(&cell_id).unwrap();
+    let main_area = Area::new(canvas_size);
+    let menu_area = main_area.get_sub_area(0.0, 0.02, 0., 0.96, 0.02, 0.43);
+    render_fns::draw_menu_background(menu_area.to_rect(), canvas)?;
 
-    let (width, height) = (canvas_size.0 as f64, canvas_size.1 as f64);
-    let section = FRect::new(width - height * 0.43, height * 0.03, height * 0.4, height * 0.94);
-    render_fns::draw_menu_background(section.to_rect(), canvas)?;
+    // "Cell Information"
+    let text_pos = menu_area.get_point(0.5, 0.02, 0.0);
+    render_fns::draw_text("Cell Information", text_pos, 0.5, canvas_size.1 / 20, canvas, &mut program_data.glyph_cache, &program_data.font, &program_data.texture_creator)?;
 
-    program_data.ensure_text_is_rendered("Cell Information")?;
+    // "Health: "
+    let health = (cell.health * 100.).round() / 100.;
+    let text_pos = menu_area.get_point(0.05, 0.09, 0.0);
+    render_fns::draw_text("Health: ".to_string() + &health.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.glyph_cache, &program_data.font, &program_data.texture_creator)?;
+
+    // "Energy: "
+    let energy = (cell.energy * 100.).round() / 100.;
+    let text_pos = menu_area.get_point(0.05, 0.14, 0.0);
+    render_fns::draw_text("Energy: ".to_string() + &energy.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.glyph_cache, &program_data.font, &program_data.texture_creator)?;
+
+    // "Material: "
+    let material = (cell.material * 100.).round() / 100.;
+    let text_pos = menu_area.get_point(0.05, 0.19, 0.0);
+    render_fns::draw_text("Material: ".to_string() + &material.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.glyph_cache, &program_data.font, &program_data.texture_creator)?;
+
+    let mut cell_data_area = menu_area.get_sub_area(0.05, 0.2, 0.9, 0.78, 0., 0.);
+    render_fns::draw_menu_background(cell_data_area.to_rect(), canvas)?;
+
+    match &cell.raw_cell {
+        RawCell::Fat (fat_cell_data) => draw_cell_information_fat(fat_cell_data, cell_data_area, canvas, canvas_size, &mut program_data.glyph_cache, &program_data.font, program_data.texture_creator)?,
+        RawCell::Photosynthesiser => draw_cell_information_photosythesiser(cell_data_area, &program_data, canvas, canvas_size)?,
+    }
+
+    Ok(())
+}
+
+
+
+
+
+pub fn draw_cell_information_fat<'a> (cell_data: &FatCellData, cell_data_area: Area, canvas: &mut WindowCanvas, canvas_size: (u32, u32), glyph_cache: &mut GlyphCache<'a>, font: &FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Result<(), ProgramError> {
+
+    // "Fat Cell"
+    let text_pos = cell_data_area.get_point(0.05, 0.19, 0.0);
+    render_fns::draw_text("Fat Cell", text_pos, 0.5, canvas_size.1 / 20, canvas, glyph_cache, font, texture_creator)?;
+
+    Ok(())
+}
+
+
+
+
+
+pub fn draw_cell_information_photosythesiser (cell_data_area: Area, program_data: &ProgramData, canvas: &mut WindowCanvas, canvas_size: (u32, u32)) -> Result<(), ProgramError> {
 
     Ok(())
 }

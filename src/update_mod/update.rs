@@ -4,7 +4,6 @@ use sdl2::{EventPump, keyboard::Keycode, render::WindowCanvas};
 
 
 pub fn update (program_data: &mut ProgramData, event_pump: &mut EventPump, canvas: &WindowCanvas, dt: f64) -> Result<(), ProgramError> {
-    if program_data.frame_count < 30 {return Ok(());}
     
     events::process_events(program_data, event_pump, canvas)?;
 
@@ -41,6 +40,7 @@ pub fn move_camera(program_data: &mut ProgramData, dt: f64) {
 
 
 pub fn update_cells(program_data: &mut ProgramData, dt: f64) {
+    if program_data.frame_count < 30 {return;}
     let keys: Vec<EntityID> = program_data.cells.master_list.keys().copied().collect();
 
     // main update (WARNING: cell positions and velocities have to stay constant here)
@@ -166,25 +166,25 @@ pub fn update_cell_by_type (current_cell_id: &EntityID, program_data: &mut Progr
     if !current_cell.is_active {return;}
     match &mut current_cell.raw_cell {
 
-        RawCell::Fat { extra_energy, extra_material } => {
+        RawCell::Fat (cell_data) => {
             // transfer logic
-            if current_cell.energy > CELL_FAT_ENERGY_STORE_THRESHOLD {
-                let transfer_amount = (CELL_FAT_ENERGY_STORE_THRESHOLD - current_cell.energy).min(CELL_FAT_ENERGY_STORE_RATE) * dt;
+            if current_cell.energy > cell_data.energy_store_threshold {
+                let transfer_amount = (current_cell.energy - cell_data.energy_release_threshold).min(cell_data.energy_store_rate) * dt;
                 current_cell.energy -= transfer_amount;
-                *extra_energy += transfer_amount;
-            } else if current_cell.energy < CELL_FAT_ENERGY_RELEASE_THRESHOLD {
-                let transfer_amount = (current_cell.energy - CELL_FAT_ENERGY_RELEASE_THRESHOLD).min(CELL_FAT_ENERGY_RELEASE_RATE) * dt;
+                cell_data.extra_energy += transfer_amount;
+            } else if current_cell.energy < cell_data.energy_release_threshold {
+                let transfer_amount = (cell_data.energy_store_threshold - current_cell.energy).min(cell_data.energy_release_rate) * dt;
                 current_cell.energy += transfer_amount;
-                *extra_energy -= transfer_amount;
+                cell_data.extra_energy -= transfer_amount;
             }
-            if current_cell.material > CELL_FAT_MATERIAL_STORE_THRESHOLD {
-                let transfer_amount = (CELL_FAT_MATERIAL_STORE_THRESHOLD - current_cell.material).min(CELL_FAT_MATERIAL_STORE_RATE) * dt;
+            if current_cell.material > cell_data.material_store_threshold {
+                let transfer_amount = (current_cell.material - cell_data.material_release_threshold).min(cell_data.material_store_rate) * dt;
                 current_cell.material -= transfer_amount;
-                *extra_energy += transfer_amount;
-            } else if current_cell.material < CELL_FAT_MATERIAL_RELEASE_THRESHOLD {
-                let transfer_amount = (current_cell.material - CELL_FAT_MATERIAL_RELEASE_THRESHOLD).min(CELL_FAT_MATERIAL_RELEASE_RATE) * dt;
+                cell_data.extra_energy += transfer_amount;
+            } else if current_cell.material < cell_data.material_release_threshold {
+                let transfer_amount = (cell_data.material_store_threshold - current_cell.material).min(cell_data.material_release_rate) * dt;
                 current_cell.material += transfer_amount;
-                *extra_energy -= transfer_amount;
+                cell_data.extra_energy -= transfer_amount;
             }
         }
 

@@ -1,3 +1,5 @@
+use sdl2::{render::TextureCreator, video::WindowContext, surface::Surface};
+
 use crate::prelude::*;
 
 
@@ -63,6 +65,18 @@ pub fn get_program_dir() -> PathBuf {
 
 
 
+pub fn create_texture<'a> (width: u32, height: u32, texture_creator: &'a TextureCreator<WindowContext>) -> Texture<'a> {
+    let surface = Surface::new(width, height, sdl2::pixels::PixelFormatEnum::RGBA8888).unwrap();
+    texture_creator.create_texture_from_surface(surface).unwrap()
+}
+
+pub fn get_texture_size (texture: &Texture) -> (u32, u32) {
+    let query = texture.query();
+    (query.width, query.height)
+}
+
+
+
 pub fn find_item_index<T: PartialEq> (input: &[T], item: &T) -> Option<usize> {
     for (i, curr_item) in input.iter().enumerate() {
         if curr_item == item {
@@ -107,11 +121,6 @@ pub fn polar_to_rect (l: f64, a: f64) -> (f64, f64) {
 
 
 
-
-pub fn get_texture_size (texture: &Texture) -> (u32, u32) {
-    let query = texture.query();
-    (query.width, query.height)
-}
 
 // THIS IS UNTESTED
 pub fn get_spritesheet_src_from_index (spritesheet: &Texture, index: u32, sprite_width: u32, sprite_height: u32) -> Rect {
