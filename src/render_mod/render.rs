@@ -17,7 +17,7 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
 
     //let start_instant = Instant::now();
     { // draw_ground
-        let textures = &program_data.textures;
+        let textures = &program_data.render_data.textures;
         let zoom = program_data.camera.zoom;
         let start_curr_x = fns::convert_single_grid_to_screen(start_grid_x as f64, camera.x, zoom, canvas_size);
         let start_next_x = fns::convert_single_grid_to_screen(start_grid_x as f64 + 1., camera.x, zoom, canvas_size);
@@ -54,7 +54,7 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
     //println!("{}", start_instant.elapsed().as_micros());
 
     { // draw entities
-        let textures = &program_data.textures;
+        let textures = &program_data.render_data.textures;
         let start_grid_x = (start_grid_x - 1).max(0);
         let start_grid_y = (start_grid_y - 1).max(0);
         let end_grid_x = (end_grid_x + 1).min(GRID_WIDTH  as isize - 1);
@@ -89,7 +89,7 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
 pub fn draw_entities<T: Entity> (x: usize, y: usize, entities_container: &EntityContainer<T>, camera: &Camera, canvas: &mut WindowCanvas, canvas_size: (u32, u32), textures: &ProgramTextures) -> Result<(), ProgramError> {
     let current_slot = &entities_container.entities_by_pos[x + y * GRID_WIDTH];
     for cell_id in current_slot {
-        let entity = entities_container.master_list.get(cell_id).unwrap();
+        let entity = entities_container.get(*cell_id).unwrap();
         canvas.copy(entity.get_texture(textures), None, get_entity_rect(entity.as_ref(), camera, canvas_size))?;
     }
     Ok(())
@@ -108,36 +108,36 @@ pub fn get_entity_rect (entity: &RawEntity, camera: &Camera, canvas_size: (u32, 
 
 
 pub fn draw_cell_information (cell_id: EntityID, program_data: &mut ProgramData, canvas: &mut WindowCanvas, canvas_size: (u32, u32)) -> Result<(), ProgramError> {
-    let cell = program_data.cells.master_list.get(&cell_id).unwrap();
+    let cell = program_data.cells.get(cell_id).unwrap();
     let main_area = Area::new(canvas_size);
     let menu_area = main_area.get_sub_area(0.0, 0.02, 0., 0.96, 0.02, 0.43);
     render_fns::draw_menu_background(menu_area.to_rect(), canvas)?;
 
     // "Cell Information"
     let text_pos = menu_area.get_point(0.5, 0.02, 0.0);
-    render_fns::draw_text("Cell Information", text_pos, 0.5, canvas_size.1 / 20, canvas, &mut program_data.glyph_cache, &program_data.font, &program_data.texture_creator)?;
+    render_fns::draw_text("Cell Information", text_pos, 0.5, canvas_size.1 / 20, canvas, &mut program_data.render_data)?;
 
     // "Health: "
     let health = (cell.health * 100.).round() / 100.;
     let text_pos = menu_area.get_point(0.05, 0.09, 0.0);
-    render_fns::draw_text("Health: ".to_string() + &health.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.glyph_cache, &program_data.font, &program_data.texture_creator)?;
+    render_fns::draw_text("Health: ".to_string() + &health.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.render_data)?;
 
     // "Energy: "
     let energy = (cell.energy * 100.).round() / 100.;
     let text_pos = menu_area.get_point(0.05, 0.14, 0.0);
-    render_fns::draw_text("Energy: ".to_string() + &energy.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.glyph_cache, &program_data.font, &program_data.texture_creator)?;
+    render_fns::draw_text("Energy: ".to_string() + &energy.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.render_data)?;
 
     // "Material: "
     let material = (cell.material * 100.).round() / 100.;
     let text_pos = menu_area.get_point(0.05, 0.19, 0.0);
-    render_fns::draw_text("Material: ".to_string() + &material.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.glyph_cache, &program_data.font, &program_data.texture_creator)?;
+    render_fns::draw_text("Material: ".to_string() + &material.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.render_data)?;
 
-    let mut cell_data_area = menu_area.get_sub_area(0.05, 0.2, 0.9, 0.78, 0., 0.);
+    let mut cell_data_area = menu_area.get_sub_area(0.05, 0.25, 0.9, 0.73, 0., 0.);
     render_fns::draw_menu_background(cell_data_area.to_rect(), canvas)?;
 
     match &cell.raw_cell {
-        RawCell::Fat (fat_cell_data) => draw_cell_information_fat(fat_cell_data, cell_data_area, canvas, canvas_size, &mut program_data.glyph_cache, &program_data.font, program_data.texture_creator)?,
-        RawCell::Photosynthesiser => draw_cell_information_photosythesiser(cell_data_area, &program_data, canvas, canvas_size)?,
+        RawCell::Fat (fat_cell_data) => draw_cell_information_fat(fat_cell_data, cell_data_area, canvas, canvas_size, &mut program_data.render_data)?,
+        RawCell::Photosynthesiser => draw_cell_information_photosythesiser(cell_data_area, program_data, canvas, canvas_size)?,
     }
 
     Ok(())
@@ -147,11 +147,11 @@ pub fn draw_cell_information (cell_id: EntityID, program_data: &mut ProgramData,
 
 
 
-pub fn draw_cell_information_fat<'a> (cell_data: &FatCellData, cell_data_area: Area, canvas: &mut WindowCanvas, canvas_size: (u32, u32), glyph_cache: &mut GlyphCache<'a>, font: &FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Result<(), ProgramError> {
+pub fn draw_cell_information_fat (cell_data: &FatCellData, cell_data_area: Area, canvas: &mut WindowCanvas, canvas_size: (u32, u32), render_data: &mut RenderData) -> Result<(), ProgramError> {
 
     // "Fat Cell"
     let text_pos = cell_data_area.get_point(0.05, 0.19, 0.0);
-    render_fns::draw_text("Fat Cell", text_pos, 0.5, canvas_size.1 / 20, canvas, glyph_cache, font, texture_creator)?;
+    render_fns::draw_text("Fat Cell", text_pos, 0.5, canvas_size.1 / 20, canvas, render_data)?;
 
     Ok(())
 }

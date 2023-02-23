@@ -116,7 +116,7 @@ pub fn get_screen_item_at_pos (x: i32, y: i32, program_data: &ProgramData, canva
 pub fn get_entity_at_pos<T: Entity> (grid_pos: (usize, usize), map_pos: (f64, f64), entities: &EntityContainer<T>) -> Option<EntityID> {
     let entity_ids = fns::get_entity_ids_near_pos(grid_pos, entities);
     for current_entity_id in entity_ids {
-        let entity = entities.master_list.get(&current_entity_id).unwrap().as_ref();
+        let entity = entities.master_list[current_entity_id.0].0.as_ref().unwrap().as_ref();
         let dist_vec = (map_pos.0 - entity.x, map_pos.1 - entity.y);
         let dist_vec = (dist_vec.0 / entity.width, dist_vec.1 / entity.height);
         let dist_to_cell_center = fns::vec_len(dist_vec);

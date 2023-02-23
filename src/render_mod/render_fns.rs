@@ -28,11 +28,11 @@ pub fn draw_menu_background (rect: Rect, canvas: &mut WindowCanvas) -> Result<()
 
 
 
-pub fn draw_text<'a, 'b> (text: impl AsRef<str>, text_pos: (i32, i32), x_align: f64, size: u32, canvas: &mut WindowCanvas, glyph_cache: &mut GlyphCache<'a>, font: &FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Result<(), ProgramError> {
+pub fn draw_text (text: impl AsRef<str>, text_pos: (i32, i32), x_align: f64, size: u32, canvas: &mut WindowCanvas, render_data: &mut RenderData) -> Result<(), ProgramError> {
     let text = text.as_ref();
     let glyphs = text.chars()
         .map(|c| {
-            font
+            render_data.font
                 .glyph_id(c)
                 .with_scale(PxScale::from(size as f32))
         })
@@ -40,13 +40,13 @@ pub fn draw_text<'a, 'b> (text: impl AsRef<str>, text_pos: (i32, i32), x_align: 
 
     // ensure glyphs are rendered
     for glyph in &glyphs {
-        ensure_glyph_is_rendered(glyph, (glyph_cache, font, texture_creator))?;
+        ensure_glyph_is_rendered(glyph, render_data)?;
     }
 
     // get text positioning
     let mut glyph_positions = Vec::with_capacity(glyphs.len());
     let mut current_x = 0;
-    let scaled_font = font.as_scaled(PxScale::from(size as f32));
+    let scaled_font = render_data.font.as_scaled(PxScale::from(size as f32));
     for glyph in &glyphs {
         glyph_positions.push(current_x);
         current_x += scaled_font.h_advance(glyph.id) as u32;
@@ -57,7 +57,7 @@ pub fn draw_text<'a, 'b> (text: impl AsRef<str>, text_pos: (i32, i32), x_align: 
 
     // place text
     for (i, glyph) in glyphs.iter().enumerate() {
-        let texture = glyph_cache.get(&HashableGlyph::from_glyph(&glyph)).unwrap();
+        let texture = render_data.glyph_cache.get(&HashableGlyph::from_glyph(glyph)).unwrap();
         let texture_size = fns::get_texture_size(&texture.texture);
         let dst = Rect::new(left_x + glyph_positions[i] as i32 + texture.origin_x, text_pos.1 + texture.origin_y + size as i32, texture_size.0, texture_size.1);
         canvas.copy(&texture.texture, None, dst)?;
@@ -68,17 +68,16 @@ pub fn draw_text<'a, 'b> (text: impl AsRef<str>, text_pos: (i32, i32), x_align: 
 
 
 
-pub fn ensure_glyph_is_rendered<'a> (glyph: &Glyph, draw_data: (&mut GlyphCache<'a>, &FontVec, &'a TextureCreator<WindowContext>)) -> Result<(), ProgramError> {//, glyph_cache: &mut GlyphCache<'a>, font: &FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Result<(), ProgramError> {
-    let (glyph_cache, font, texture_creator) = draw_data;
+pub fn ensure_glyph_is_rendered (glyph: &Glyph, render_data: &mut RenderData) -> Result<(), ProgramError> {
 
     // return if already rendered
     let hashable_glyph = HashableGlyph::from_glyph(glyph);
-    if glyph_cache.contains_key(&hashable_glyph) {return Ok(());}
+    if render_data.glyph_cache.contains_key(&hashable_glyph) {return Ok(());}
 
-    let texture = render_fns::render_glyph(glyph, font, texture_creator)?;
+    let texture = render_fns::render_glyph(glyph, render_data)?;
 
     // cache
-    glyph_cache.insert(hashable_glyph, texture);
+    render_data.glyph_cache.insert(hashable_glyph, texture);
 
     Ok(())
 }
@@ -87,13 +86,13 @@ pub fn ensure_glyph_is_rendered<'a> (glyph: &Glyph, draw_data: (&mut GlyphCache<
 
 
 
-pub fn render_glyph<'a> (glyph: &Glyph, font: &FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Result<GlyphTexture<'a>, ProgramError> {
+pub fn render_glyph<'a> (glyph: &Glyph, render_data: &mut RenderData<'a>) -> Result<GlyphTexture<'a>, ProgramError> {
 
     // get render data
-    let glyph_outline = match font.outline_glyph(glyph.clone()) {
+    let glyph_outline = match render_data.font.outline_glyph(glyph.clone()) {
         Some(v) => v,
         None => {
-            let texture = fns::create_texture(glyph.scale.x as u32, glyph.scale.y as u32, texture_creator);
+            let texture = fns::create_texture(glyph.scale.x as u32, glyph.scale.y as u32, render_data.texture_creator);
             return Ok(GlyphTexture {texture, origin_x: 0, origin_y: 0});
         },
     };
@@ -112,7 +111,7 @@ pub fn render_glyph<'a> (glyph: &Glyph, font: &FontVec, texture_creator: &'a Tex
     });
 
     // vec -> texture
-    let mut texture = fns::create_texture(width as u32, height as u32, texture_creator);
+    let mut texture = fns::create_texture(width as u32, height as u32, render_data.texture_creator);
     texture.update(None, &pixel_data, width * 4)?;
 
     Ok(GlyphTexture {

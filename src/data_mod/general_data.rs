@@ -14,10 +14,7 @@ pub struct ProgramData<'a> {
     pub selected_entity: EntitySelection,
     pub keys_pressed: HashMap<Keycode, ()>,
 
-    pub textures: ProgramTextures<'a>,
-    pub texture_creator: &'a TextureCreator<WindowContext>,
-    pub font: FontVec,
-    pub glyph_cache: GlyphCache<'a>,
+    pub render_data: RenderData<'a>,
 
     pub cells: EntityContainer<Cell>,
     pub food: EntityContainer<Food>,
@@ -26,7 +23,7 @@ pub struct ProgramData<'a> {
 
 impl<'a> ProgramData<'a> {
 
-    pub fn new (textures: ProgramTextures<'a>, font: FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
+    pub fn new (render_data: RenderData<'a>) -> Self {
         Self {
 
             start_instant: Instant::now(),
@@ -41,10 +38,7 @@ impl<'a> ProgramData<'a> {
             selected_entity: EntitySelection::None,
             keys_pressed: HashMap::new(),
 
-            textures,
-            texture_creator,
-            font,
-            glyph_cache: HashMap::new(),
+            render_data,
 
             cells: EntityContainer::new(),
             food: EntityContainer::new(),
@@ -63,6 +57,26 @@ impl<'a> ProgramData<'a> {
 pub type GlyphCache<'a> = HashMap<HashableGlyph, GlyphTexture<'a>>;
 
 
+
+
+
+pub struct RenderData<'a> {
+    pub textures: ProgramTextures<'a>,
+    pub texture_creator: &'a TextureCreator<WindowContext>,
+    pub font: FontVec,
+    pub glyph_cache: GlyphCache<'a>,
+}
+
+impl<'a> RenderData<'a> {
+    pub fn new (textures: ProgramTextures<'a>, font: FontVec, texture_creator: &'a TextureCreator<WindowContext>) -> Self {
+        Self {
+            textures,
+            texture_creator,
+            font,
+            glyph_cache: HashMap::new(),
+        }
+    }
+}
 
 
 
@@ -99,6 +113,11 @@ pub struct GlyphTexture<'a> {
     pub origin_x: i32,
     pub origin_y: i32,
 }
+
+
+
+
+
 
 
 

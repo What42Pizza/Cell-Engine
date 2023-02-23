@@ -40,14 +40,16 @@ pub fn init_sdl2() -> (Sdl, Canvas<Window>) {
 pub fn init_program_data<'a> (canvas: &Canvas<Window>, texture_creator: &'a TextureCreator<WindowContext>) -> Result<ProgramData<'a>, ProgramError> {
     let (width, height) = canvas.output_size()?;
 
-    let textures = load_textures(&texture_creator)?;
+    let textures = load_textures(texture_creator)?;
 
     let mut font_path = fns::get_program_dir();
     font_path.push("JetBrainsMono-Regular_0.ttf");
     let raw_font_bytes = fs::read(font_path).expect("Could not load the given font (fs::read error)");
     let font = FontVec::try_from_vec(raw_font_bytes).expect("Could not load the given font (FontVec::try_from_vec error)");
 
-    Ok(ProgramData::new(textures, font, texture_creator))
+    let render_data = RenderData::new(textures, font, texture_creator);
+
+    Ok(ProgramData::new(render_data))
 }
 
 

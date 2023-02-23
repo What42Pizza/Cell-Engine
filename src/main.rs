@@ -60,7 +60,6 @@ mod init;
 mod data_mod;
 mod fns;
 mod prelude;
-mod additions;
 
 
 
@@ -72,15 +71,15 @@ use prelude::*;
 
 fn add_test_data (program_data: &mut ProgramData) {
 
-    let cell_1 = Cell::new_with_vel(RawCell::new_fat_cell(), 1.5, 1.5, 1.0, 1.0, 0.0, 5.0, 0.0);
-    let cell_2 = Cell::new_with_vel(RawCell::new_fat_cell(), 2.5, 1.7, 1.0, 1.0, 0.0, -5.0, 5.0);
-    let cell_3 = Cell::new_with_vel(RawCell::new_fat_cell(), 1.7, 2.5, 1.0, 1.0, 0.0, 0.0, -5.0);
+    let cell_1 = Cell::new_with_vel(RawCell::new_fat_cell(), (1.5, 1.5), 1.0, 1.0, 0.0, (5.0, 0.0));
+    let cell_2 = Cell::new_with_vel(RawCell::new_fat_cell(), (2.5, 1.7), 1.0, 1.0, 0.0, (-5.0, 5.0));
+    let cell_3 = Cell::new_with_vel(RawCell::new_fat_cell(), (1.7, 2.5), 1.0, 1.0, 0.0, (0.0, -5.0));
     let cell_1_id = program_data.cells.add_entity(cell_1).unwrap();
     let cell_2_id = program_data.cells.add_entity(cell_2).unwrap();
     let cell_3_id = program_data.cells.add_entity(cell_3).unwrap();
-    program_data.cells.master_list.get_mut(&cell_1_id).unwrap().connected_cells.append(&mut vec!(cell_2_id, cell_3_id));
-    program_data.cells.master_list.get_mut(&cell_2_id).unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_3_id));
-    program_data.cells.master_list.get_mut(&cell_3_id).unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_2_id));
+    program_data.cells.master_list[cell_1_id.0].0.as_mut().unwrap().connected_cells.append(&mut vec!(cell_2_id, cell_3_id));
+    program_data.cells.master_list[cell_2_id.0].0.as_mut().unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_3_id));
+    program_data.cells.master_list[cell_3_id.0].0.as_mut().unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_2_id));
 
     program_data.food.add_entity(Food::new(3.5, 2.5, 1.0, 1.0));
 

@@ -4,6 +4,7 @@ use crate::prelude::*;
 
 
 
+#[derive(Debug)]
 pub struct Cell {
     pub is_active: bool,
     pub health: f64,
@@ -34,18 +35,18 @@ impl Cell {
             connected_cells: vec!(),
         }
     }
-    pub fn new_with_vel (raw_cell: RawCell, x: f64, y: f64, health: f64, energy: f64, material: f64, x_vel: f64, y_vel: f64) -> Self {
+    pub fn new_with_vel (raw_cell: RawCell, pos: (f64, f64), health: f64, energy: f64, material: f64, vel: (f64, f64)) -> Self {
         Self {
             is_active: true,
             health,
             energy,
             material,
-            x_vel,
-            y_vel,
-            x_vel_copy: x_vel,
-            y_vel_copy: y_vel,
+            x_vel: vel.0,
+            y_vel: vel.1,
+            x_vel_copy: vel.0,
+            y_vel_copy: vel.1,
             raw_cell,
-            entity: RawEntity::new(x, y, 1., 1.),
+            entity: RawEntity::new(pos.0, pos.1, 1., 1.),
             connected_cells: vec!(),
         }
     }
@@ -85,6 +86,7 @@ impl AsMut<RawEntity> for Cell {
 
 
 
+#[derive(Debug)]
 pub enum RawCell {
 
     Fat (FatCellData),
@@ -118,6 +120,7 @@ impl RawCell {
 
 
 
+#[derive(Debug)]
 pub struct FatCellData {
     pub extra_energy: f64,
     pub extra_material: f64,

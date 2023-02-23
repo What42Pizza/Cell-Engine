@@ -1,6 +1,5 @@
-use sdl2::{render::TextureCreator, video::WindowContext, surface::Surface};
-
 use crate::prelude::*;
+use sdl2::{render::TextureCreator, video::WindowContext, surface::Surface};
 
 
 
@@ -65,7 +64,7 @@ pub fn get_program_dir() -> PathBuf {
 
 
 
-pub fn create_texture<'a> (width: u32, height: u32, texture_creator: &'a TextureCreator<WindowContext>) -> Texture<'a> {
+pub fn create_texture (width: u32, height: u32, texture_creator: &TextureCreator<WindowContext>) -> Texture {
     let surface = Surface::new(width, height, sdl2::pixels::PixelFormatEnum::RGBA8888).unwrap();
     texture_creator.create_texture_from_surface(surface).unwrap()
 }
@@ -85,6 +84,60 @@ pub fn find_item_index<T: PartialEq> (input: &[T], item: &T) -> Option<usize> {
     }
     None
 }
+
+pub fn find_item_index_custom<T> (input: &[T], test_fn: impl Fn(&T) -> bool) -> Option<usize> {
+    for (i, curr_item) in input.iter().enumerate() {
+        if test_fn(curr_item) {
+            return Some(i);
+        }
+    }
+    None
+}
+
+
+
+pub fn some_if<T> (condition: bool, some_fn: impl FnOnce() -> T) -> Option<T> {
+    if condition {
+        Some(some_fn())
+    } else {
+        None
+    }
+}
+
+
+
+
+
+pub fn get_many_mut<'a, T> (input: &'a mut [T], indicies: &[usize]) -> Vec<&'a mut T> {
+    let mut sorted_indicies = indicies.to_vec();
+    sorted_indicies.sort();
+    for window in sorted_indicies.windows(2) {
+        if window[0] == window[1] {
+            panic!("Cannot take multuple mutable references of the same index ({} and {})", window[0], window[1]);
+        }
+    }
+    let mut rest = input;
+    let mut slices = vec!();
+    let mut offset = 1;
+    for current_index in sorted_indicies.into_iter() {
+        let (new_slice, new_rest) = rest.split_at_mut((current_index as isize + offset) as usize);
+        offset -= new_slice.len() as isize;
+        slices.push((current_index, new_slice));
+        rest = new_rest;
+    }
+    let mut output = vec!();
+    for &current_index in indicies {
+        'inner: for i in 0..slices.len() {
+            if slices[i].0 == current_index {
+                output.push(slices.swap_remove(i).1.last_mut().unwrap());
+                break 'inner;
+            }
+        }
+    }
+    output
+}
+
+
 
 
 
@@ -140,16 +193,6 @@ pub fn get_file_exists (path: &Path) -> Result<bool, IoError> {
     match err.kind() {
         IoErrorKind::NotFound => Ok(false),
         _ => Err(err),
-    }
-}
-
-
-
-pub fn some_if<T> (condition: bool, some_fn: impl FnOnce() -> T) -> Option<T> {
-    if condition {
-        Some(some_fn())
-    } else {
-        None
     }
 }
 

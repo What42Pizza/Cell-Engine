@@ -6,16 +6,18 @@ use crate::prelude::*;
 // WARNING: RawEntity.curr_grid_ feilds need to stay synced with EntityContainer.entities_by_pos //
 //-----------------------------------------------------------------------------------------------//
 
-pub type EntityID = u32;
+pub type EntityID = (usize, u32);
 
 pub struct EntityContainer<T: Entity> {
-    pub master_list: HashMap<EntityID, T>,
-    pub new_entity_id: EntityID,
+    pub master_list: Vec<(Option<T>, u32)>,
+    pub current_index: usize,
+    pub empty_slots: u32,
     pub entities_by_pos: Vec<Vec<EntityID>>, // 1d array for grid, 1d array for entities in that slot
 }
 
 
 
+#[derive(Debug)]
 pub struct RawEntity {
     pub should_be_removed: bool,
     pub x: f64,
@@ -49,32 +51,41 @@ pub trait Entity: AsRef<RawEntity> + AsMut<RawEntity> {
 
 
 
+
 impl<T: Entity> EntityContainer<T> {
 
     pub fn new() -> Self {
         let grid = vec![vec!(); GRID_WIDTH * GRID_HEIGHT];
         Self {
-            master_list: HashMap::new(),
-            new_entity_id: 0,
+            master_list: vec!(),
+            current_index: 0,
+            empty_slots: 0,
             entities_by_pos: grid,
         }
     }
 
-    pub fn add_entity (&mut self, mut entity: T) -> Option<EntityID> {
-        let raw_entity = entity.as_mut();
+    pub fn add_entity (&mut self, entity: T) -> Option<EntityID> {
+        let raw_entity = entity.as_ref();
 
         if self.master_list.len() >= MAX_ENTITIES_COUNT {return None;}
         let (current_grid_x, current_grid_y) = (raw_entity.current_grid_x, raw_entity.current_grid_y);
 
-        // add to list
-        let mut entity_id;
-        loop {
-            entity_id = self.new_entity_id;
-            self.new_entity_id += 1;
-            match self.master_list.insert(entity_id, entity) {
-                Some(returned_entity) => entity = returned_entity,
-                None => break,
+        // add to master list
+        let entity_id;
+        let master_list_len = self.master_list.len();
+        if self.empty_slots as f64 / master_list_len as f64 >= 0.05 {
+            // re-use slot
+            while self.master_list[self.current_index].0.is_some() {
+                self.current_index = (self.current_index + 1) % master_list_len;
             }
+            let existing_slot = &self.master_list[self.current_index];
+            entity_id = (self.current_index, existing_slot.1 + 1);
+            self.master_list[entity_id.0] = (Some(entity), entity_id.1);
+            self.empty_slots -= 1;
+        } else {
+            // add to new slot
+            entity_id = (master_list_len, 0);
+            self.master_list.push((Some(entity), entity_id.1));
         }
 
         // add to entities_by_pos
@@ -83,14 +94,32 @@ impl<T: Entity> EntityContainer<T> {
         Some(entity_id)
     }
 
+    pub fn get (&self, id: EntityID) -> Option<&T> {
+        let entity_data = &self.master_list[id.0];
+        let Some(entity) = &entity_data.0 else {return None;};
+        fns::some_if(entity_data.1 == id.1, || entity)
+    }
+
+    pub fn get_mut (&mut self, id: EntityID) -> Option<&mut T> {
+        let entity_data = &mut self.master_list[id.0];
+        let Some(entity) = &mut entity_data.0 else {return None;};
+        fns::some_if(entity_data.1 == id.1, || entity)
+    }
+
+    pub fn id_is_valid (&self, id: EntityID) -> bool {
+        let entity_data = &self.master_list[id.0];
+        entity_data.0.is_some() && entity_data.1 == id.1
+    }
+
     pub fn sync_feilds (&mut self) {
 
-        let keys: Vec<u32> = self.master_list.keys().copied().collect();
+        let mut indicies_to_erase = vec!();
 
         // update entities_by_pos
-        for id in keys {
-            let entity = self.master_list.get_mut(&id).unwrap();
+        for (i, entity_data) in self.master_list.iter_mut().enumerate() {
+            let Some(entity) = entity_data.0.as_mut() else {continue;};
             let raw_entity = entity.as_mut();
+            let id = (i, entity_data.1);
 
             // remove if should_be_removed
             if raw_entity.should_be_removed {
@@ -98,7 +127,8 @@ impl<T: Entity> EntityContainer<T> {
                 let slot = &mut self.entities_by_pos[grid_x + grid_y * GRID_WIDTH];
                 let slot_pos = fns::find_item_index(slot, &id).unwrap();
                 slot.remove(slot_pos);
-                self.master_list.remove(&id);
+                indicies_to_erase.push(id.0);
+                self.empty_slots += 1;
                 continue;
             }
 
@@ -120,6 +150,10 @@ impl<T: Entity> EntityContainer<T> {
             let new_slot = &mut self.entities_by_pos[new_x + new_y * GRID_WIDTH];
             new_slot.push(id);
 
+        }
+
+        for current_index in indicies_to_erase {
+            self.master_list[current_index].0 = None;
         }
 
     }
