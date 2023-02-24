@@ -7,14 +7,14 @@ edition = "2021"
 hashbrown = {version = "0.13.*", features = ["rayon"]}
 array-init = "2.1.*"
 lerp = "0.4.*"
-num-traits = "0.2.15"
-ab_glyph = "0.2.20"
-atomic_refcell = "0.1.9"
+num-traits = "0.2.*"
+ab_glyph = "0.2.*"
+rayon = "1.6.*"
+parking_lot = "0.12.*"
 #serde-hjson = "0.9.*"
 #regex = "1.7.*"
 #derive_is_enum_variant = "0.1.*"
 #fmt-derive = "0.0.*"
-#rayon = "1.5.*"
 
 [dependencies.sdl2]
 version = "0.35.*"

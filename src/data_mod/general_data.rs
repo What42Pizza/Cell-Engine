@@ -17,7 +17,7 @@ pub struct ProgramData<'a> {
     pub render_data: RenderData<'a>,
 
     pub cells: EntityContainer<Buffer<Cell>>,
-    pub food: EntityContainer<Food>,
+    pub food: EntityContainer<Buffer<Food>>,
 
 }
 
@@ -157,24 +157,24 @@ pub struct Buffer<T> {
 impl<T> Buffer<T> {
 
     pub fn main (&self) -> AtomicRef<T> {
-        self.main.borrow()
+        self.main.read()
     }
     pub fn main_mut (&self) -> AtomicRefMut<T> {
-        self.main.borrow_mut()
+        self.main.write()
     }
 
     pub fn alt (&self) -> AtomicRef<T> {
-        self.alt.borrow()
+        self.alt.read()
     }
-    pub fn alt_mut (&mut self) -> AtomicRefMut<T> {
-        self.alt.borrow_mut()
+    pub fn alt_mut (&self) -> AtomicRefMut<T> {
+        self.alt.write()
     }
 
     pub fn both (&self) -> (AtomicRef<T>, AtomicRef<T>) {
-        (self.main.borrow(), self.alt.borrow())
+        (self.main.read(), self.alt.read())
     }
-    pub fn both_mut (&mut self) -> (AtomicRefMut<T>, AtomicRef<T>) {
-        (self.main.borrow_mut(), self.alt.borrow())
+    pub fn both_mut (&self) -> (AtomicRefMut<T>, AtomicRef<T>) {
+        (self.main.write(), self.alt.read())
     }
 
 }
@@ -197,6 +197,7 @@ impl<T: Clone> Buffer<T> {
 
 
 
+#[derive(Clone)]
 pub struct Food {
     pub energy: f64,
     pub material: f64,
@@ -217,20 +218,32 @@ impl Food {
     }
 }
 
-impl Entity for Food {
+impl Entity for Buffer<Food> {
     fn get_texture<'a> (&self, textures: &'a ProgramTextures<'a>) -> &'a Texture<'a> {
         &textures.food
     }
 }
 
+impl AsRef<AtomicRefCell<dyn AsRef<RawEntity>>> for Buffer<Food> {
+    fn as_ref(&self) -> &AtomicRefCell<dyn AsRef<RawEntity>> {
+        &self.main
+    }
+}
+
+impl AsMut<AtomicRefCell<dyn AsMut<RawEntity>>> for Buffer<Food> {
+    fn as_mut(&mut self) -> &mut AtomicRefCell<dyn AsMut<RawEntity>> {
+        &mut self.main
+    }
+}
+
 impl AsRef<RawEntity> for Food {
-    fn as_ref (&self) -> &RawEntity {
+    fn as_ref(&self) -> &RawEntity {
         &self.entity
     }
 }
 
 impl AsMut<RawEntity> for Food {
-    fn as_mut (&mut self) -> &mut RawEntity {
+    fn as_mut(&mut self) -> &mut RawEntity {
         &mut self.entity
     }
 }

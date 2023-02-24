@@ -1,3 +1,5 @@
+use std::borrow::BorrowMut;
+
 use crate::prelude::*;
 use sdl2::{EventPump, keyboard::Keycode, render::WindowCanvas};
 
@@ -41,32 +43,33 @@ pub fn move_camera(program_data: &mut ProgramData, dt: f64) {
 
 pub fn update_cells(program_data: &mut ProgramData, dt: f64) {
     if program_data.frame_count < 30 {return;}
+    
+    let cells = &program_data.cells;
+    let food = &program_data.food;
 
     // main update
-    for (i, cell_data) in program_data.cells.master_list.iter().enumerate() {
-        //let cell_data = &program_data.cells.master_list[i];
-        if cell_data.0.is_none() {continue;}
+    program_data.cells.master_list.par_iter().enumerate().map(|(i, cell_data)| {
+        if cell_data.0.is_none() {return;}
         let current_cell_id = (i, cell_data.1);
         remove_invalid_ids(current_cell_id, &program_data.cells);
-        let (grid_x, grid_y) = match update_single_cell(current_cell_id, program_data, dt) {
-            CellUpdateResult::Alive (grid_x, grid_y) => (grid_x, grid_y),
-            CellUpdateResult::Killed => continue,
+        let (grid_x, grid_y) = match update_single_cell(current_cell_id, cells, food, dt) {
+            CellUpdateResult::Alive {pos: (grid_x, grid_y)} => (grid_x, grid_y),
+            CellUpdateResult::Removed => return,
         };
-        update_cell_by_type(current_cell_id, program_data, dt);
-        update_connected_cells(current_cell_id, &program_data.cells, dt);
-        update_nearby_cells(current_cell_id, grid_x, grid_y, &program_data.cells, dt);
-    }
+        update_cell_by_type(current_cell_id, cells, dt);
+        update_connected_cells(current_cell_id, cells, dt);
+        update_nearby_cells(current_cell_id, grid_x, grid_y, cells, dt);
+    }).collect::<()>();
 
     // final physics
-    for i in 0..program_data.cells.master_list.len() {
-        let cell_data = &program_data.cells.master_list[i];
-        if cell_data.0.is_none() {continue;}
+    program_data.cells.master_list.par_iter().enumerate().map(|(i, cell_data)| {
+        if cell_data.0.is_none() {return;}
         let current_cell_id = (i, cell_data.1);
-        update_cell_final(current_cell_id, &mut program_data.cells, dt);
-    }
+        update_cell_final(current_cell_id, cells, dt);
+    }).collect::<()>();
 
     // sync feilds
-    program_data.cells.locked_sync_feilds();
+    program_data.cells.sync_feilds();
 
 }
 
@@ -94,13 +97,13 @@ pub fn remove_invalid_ids (current_cell_id: EntityID, cells: &EntityContainer<Bu
 
 
 pub enum CellUpdateResult {
-    Alive (usize, usize),
-    Killed,
+    Alive {pos: (usize, usize)},
+    Removed,
 }
 
-pub fn update_single_cell (current_cell_id: EntityID, program_data: &ProgramData, dt: f64) -> CellUpdateResult {
+pub fn update_single_cell (current_cell_id: EntityID, cells: &EntityContainer<Buffer<Cell>>, food: &EntityContainer<Buffer<Food>>, dt: f64) -> CellUpdateResult {
     
-    let (mut cell_main, cell_alt) = program_data.cells.master_list[current_cell_id.0].0.as_mut().unwrap().both_mut();
+    let (mut cell_main, cell_alt) = cells.master_list[current_cell_id.0].0.as_ref().unwrap().both_mut();
     let output = (cell_alt.entity.x as usize, cell_alt.entity.y as usize);
 
     //-----------------------//
@@ -136,14 +139,14 @@ pub fn update_single_cell (current_cell_id: EntityID, program_data: &ProgramData
     }
 
     // dying
-    cell_main.is_active = cell_alt.energy >= 0.;
+    cell_main.is_active &= cell_alt.energy >= 0.;
     cell_main.entity.should_be_removed = cell_alt.health <= 0.;
     if cell_alt.entity.should_be_removed {
-        program_data.food.referenced_add_entity(Food::from_cell(&cell_alt));
-        return CellUpdateResult::Killed;
+        food.buffered_add_entity(Buffer::new(Food::from_cell(&cell_alt)));
+        return CellUpdateResult::Removed;
     }
 
-    if !cell_alt.is_active {return CellUpdateResult::Alive(output.0, output.1);}
+    if !cell_alt.is_active {return CellUpdateResult::Alive {pos: (output.0, output.1)};}
 
     //--------------------------//
     //        IF ACTIVE:        //
@@ -160,15 +163,15 @@ pub fn update_single_cell (current_cell_id: EntityID, program_data: &ProgramData
         cell_main.material -= heal_amount * CELL_HEALING_MATERIAL_COST * dt;
     }
 
-    CellUpdateResult::Alive(output.0, output.1)
+    CellUpdateResult::Alive {pos: (output.0, output.1)}
 }
 
 
 
 
 
-pub fn update_cell_by_type (current_cell_id: EntityID, program_data: &mut ProgramData, dt: f64) {
-    let (mut cell_main, cell_alt) = program_data.cells.master_list[current_cell_id.0].0.as_mut().unwrap().both_mut();
+pub fn update_cell_by_type (current_cell_id: EntityID, cells: &EntityContainer<Buffer<Cell>>, dt: f64) {
+    let (mut cell_main, cell_alt) = cells.master_list[current_cell_id.0].0.as_ref().unwrap().both_mut();
     let cell_main = &mut *cell_main;
     let main_data = &mut cell_main.main_data;
     let raw_cell = &mut cell_main.raw_cell;
@@ -211,24 +214,14 @@ pub fn update_cell_by_type (current_cell_id: EntityID, program_data: &mut Progra
 
 
 pub fn update_connected_cells (current_cell_id: EntityID, cells: &EntityContainer<Buffer<Cell>>, dt: f64) {
+    let (mut cell_main, cell_alt) = cells.master_list[current_cell_id.0].0.as_ref().unwrap().both_mut();
 
-    // get cells
-    let all_cell_ids = {
-        let cell_main = cells.master_list[current_cell_id.0].0.as_mut().unwrap().main();
-        let mut output = vec!(current_cell_id);
-        for &connected_cell_id in &cell_main.connected_cells {
-            output.push(connected_cell_id);
-        }
-        output
-    };
-    let (current_cell, connected_cells) = get_current_and_others(&all_cell_ids, cells);
-    let (mut cell_main, cell_alt) = current_cell.both_mut();
-    let connected_cells: Vec<(AtomicRefMut<Cell>, AtomicRef<Cell>)> = connected_cells.into_iter()
-        .map(Buffer::both_mut)
-        .collect();
+    // get connected cells
+    let connected_cell_ids = &cell_alt.connected_cells;
 
     // connected cells
-    for (mut connected_cell_main, connected_cell_alt) in connected_cells {
+    for connected_cell_id in connected_cell_ids {
+        let (mut connected_cell_main, connected_cell_alt) = cells.master_list[connected_cell_id.0].0.as_ref().unwrap().both_mut();
 
         //-----------------------//
         //        ALWAYS:        //
@@ -274,17 +267,16 @@ pub fn update_connected_cells (current_cell_id: EntityID, cells: &EntityContaine
 
 
 pub fn update_nearby_cells (current_cell_id: EntityID, grid_x: usize, grid_y: usize, cells: &EntityContainer<Buffer<Cell>>, dt: f64) {
+    let (mut cell_main, cell_alt) = cells.master_list[current_cell_id.0].0.as_ref().unwrap().both_mut();
+
+    // get nearby cells
+    let mut nearby_cell_ids = fns::get_entity_ids_near_pos((grid_x, grid_y), cells);
+    let current_cell_id = fns::find_item_index_custom(&nearby_cell_ids, |id| id.0 == current_cell_id.0).unwrap();
+    nearby_cell_ids.swap_remove(current_cell_id);
 
     // intersection force
-    let mut all_cell_ids = fns::get_entity_ids_near_pos((grid_x, grid_y), cells);
-    let current_cell_id = fns::find_item_index_custom(&all_cell_ids, |id| id.0 == current_cell_id.0).unwrap();
-    all_cell_ids.swap(0, current_cell_id);
-    let (current_cell, nearby_cells) = get_current_and_others(&all_cell_ids, cells);
-    let (mut cell_main, cell_alt) = current_cell.both_mut();
-    let nearby_cells: Vec<(AtomicRefMut<Cell>, AtomicRef<Cell>)> = nearby_cells.into_iter()
-        .map(Buffer::both_mut)
-        .collect();
-    for (mut other_cell_main, other_cell_alt) in nearby_cells {
+    for nearby_cell_id in nearby_cell_ids {
+        let (mut other_cell_main, other_cell_alt) = cells.master_list[nearby_cell_id.0].0.as_ref().unwrap().both_mut();
         let dist_vec = cell_alt.pos_change_to(&other_cell_alt);
         let dist = fns::vec_len(dist_vec);
         if dist > 1. {continue;}
@@ -300,8 +292,8 @@ pub fn update_nearby_cells (current_cell_id: EntityID, grid_x: usize, grid_y: us
 
 
 
-pub fn update_cell_final (current_cell_id: EntityID, cells: &mut EntityContainer<Buffer<Cell>>, dt: f64) {
-    let mut cell_main = cells.master_list[current_cell_id.0].0.as_mut().unwrap().main_mut();
+pub fn update_cell_final (current_cell_id: EntityID, cells: &EntityContainer<Buffer<Cell>>, dt: f64) {
+    let mut cell_main = cells.master_list[current_cell_id.0].0.as_ref().unwrap().main_mut();
 
     // apply vel
     cell_main.entity.x += cell_main.x_vel * dt;
@@ -315,25 +307,8 @@ pub fn update_cell_final (current_cell_id: EntityID, cells: &mut EntityContainer
 
     // swap
     drop(cell_main);
-    let cell_buffer = cells.master_list[current_cell_id.0].0.as_mut().unwrap();
+    let cell_buffer = cells.master_list[current_cell_id.0].0.as_ref().unwrap();
     let new_data = cell_buffer.main().clone();
     *cell_buffer.alt_mut() = new_data;
 
 }
-
-
-
-
-
-/*
-pub fn get_current_and_others<'a, T: Entity> (ids: &[EntityID], entities: &'a mut EntityContainer<T>) -> (&'a mut T, Vec<&'a mut T>) {
-    let id_indexes: Vec<usize> = ids.iter()
-        .map(|v| v.0)
-        .collect();
-    let all_cells = fns::get_many_mut(&mut entities.master_list, &id_indexes);
-    let mut all_cells: Vec<&mut T> = all_cells.into_iter()
-        .map(|v| v.0.as_mut().unwrap())
-        .collect();
-    (all_cells.remove(0), all_cells)
-}
-*/

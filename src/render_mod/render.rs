@@ -62,8 +62,8 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
         for y in start_grid_y..=end_grid_y {
             for x in start_grid_x..=end_grid_x {
                 let (x, y) = (x as usize, y as usize);
-                locked_draw_entities(x, y, &program_data.cells, camera, canvas, canvas_size, textures)?;
-                referenced_draw_entities(x, y, &program_data.food, camera, canvas, canvas_size, textures)?;
+                draw_entities(x, y, &program_data.cells, camera, canvas, canvas_size, textures)?;
+                draw_entities(x, y, &program_data.food, camera, canvas, canvas_size, textures)?;
             }
         }
     }
@@ -86,20 +86,11 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
 
 
 
-pub fn referenced_draw_entities<T: Entity + AsRef<RawEntity>> (x: usize, y: usize, entities_container: &EntityContainer<T>, camera: &Camera, canvas: &mut WindowCanvas, canvas_size: (u32, u32), textures: &ProgramTextures) -> Result<(), ProgramError> {
+pub fn draw_entities<T: Entity + AsRef<AtomicRefCell<dyn AsRef<RawEntity>>>> (x: usize, y: usize, entities_container: &EntityContainer<T>, camera: &Camera, canvas: &mut WindowCanvas, canvas_size: (u32, u32), textures: &ProgramTextures) -> Result<(), ProgramError> {
     let current_slot = &entities_container.entities_by_pos[x + y * GRID_WIDTH];
     for cell_id in current_slot {
         let entity = entities_container.get(*cell_id).unwrap();
-        canvas.copy(entity.get_texture(textures), None, get_entity_rect(entity.as_ref(), camera, canvas_size))?;
-    }
-    Ok(())
-}
-
-pub fn locked_draw_entities<T: Entity + AsRef<AtomicRefCell<dyn AsRef<RawEntity>>>> (x: usize, y: usize, entities_container: &EntityContainer<T>, camera: &Camera, canvas: &mut WindowCanvas, canvas_size: (u32, u32), textures: &ProgramTextures) -> Result<(), ProgramError> {
-    let current_slot = &entities_container.entities_by_pos[x + y * GRID_WIDTH];
-    for cell_id in current_slot {
-        let entity = entities_container.get(*cell_id).unwrap();
-        let raw_entity = entity.as_ref().borrow();
+        let raw_entity = entity.as_ref().read();
         let raw_entity = raw_entity.as_ref();
         canvas.copy(entity.get_texture(textures), None, get_entity_rect(raw_entity, camera, canvas_size))?;
     }
