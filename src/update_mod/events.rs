@@ -3,16 +3,15 @@ use sdl2::{event::Event, keyboard::Keycode, EventPump, render::WindowCanvas, mou
 
 
 
-pub fn process_events (program_data: &mut ProgramData, event_pump: &mut EventPump, canvas: &WindowCanvas) -> Result<(), ProgramError> {
-    let mouse_state = event_pump.mouse_state();
-    
-    for event in event_pump.poll_iter() {
+pub fn process_events (program_data: &mut ProgramData, events_data: EventsData, canvas: &WindowCanvas) -> Result<(), ProgramError> {
+
+    for event in events_data.list.iter() {
         match event {
             Event::Quit {..} => program_data.exit = true,
-            Event::KeyDown {keycode: Some(keycode), ..} => handle_key_down(program_data, keycode),
-            Event::KeyUp {keycode: Some(keycode), ..} => handle_key_up(program_data, keycode),
-            Event::MouseWheel {y, ..} => process_mouse_wheel(program_data, y, &mouse_state, canvas)?,
-            Event::MouseButtonDown {mouse_btn, x, y, ..} => process_mouse_click(program_data, mouse_btn, x, y, canvas)?,
+            Event::KeyDown {keycode: Some(keycode), ..} => handle_key_down(program_data, *keycode),
+            Event::KeyUp {keycode: Some(keycode), ..} => handle_key_up(program_data, *keycode),
+            Event::MouseWheel {y, ..} => process_mouse_wheel(program_data, *y, &events_data.mouse_state, canvas)?,
+            Event::MouseButtonDown {mouse_btn, x, y, ..} => process_mouse_click(program_data, *mouse_btn, *x, *y, canvas)?,
             _ => {}
         }
     }

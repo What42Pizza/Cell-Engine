@@ -17,7 +17,7 @@ pub struct EntityContainer<T: Entity> {
 
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RawEntity {
     pub should_be_removed: bool,
     pub x: f64,

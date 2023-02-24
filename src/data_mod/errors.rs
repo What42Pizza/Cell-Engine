@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use std::io::Error as IoError;
 use sdl2::render::{TextureValueError, UpdateTextureError};
 use ab_glyph::InvalidFont;
 
@@ -15,6 +16,7 @@ pub enum ProgramError {
     TextureValueError (TextureValueError),
     UpdateTextureError (UpdateTextureError),
     InvalidFont (InvalidFont),
+    IoError (IoError),
 
 }
 
@@ -41,5 +43,11 @@ impl From<UpdateTextureError> for ProgramError {
 impl From<InvalidFont> for ProgramError {
     fn from(input: InvalidFont) -> Self {
         Self::InvalidFont(input)
+    }
+}
+
+impl From<IoError> for ProgramError {
+    fn from(input: IoError) -> Self {
+        Self::IoError(input)
     }
 }

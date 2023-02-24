@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use sdl2::{keyboard::Keycode, render::{TextureCreator, WindowCanvas}, video::WindowContext, surface::Surface};
+use sdl2::{keyboard::Keycode, render::{TextureCreator, WindowCanvas}, video::WindowContext, surface::Surface, event::Event, mouse::MouseState, EventPump};
 use ab_glyph::FontVec;
 
 
@@ -16,7 +16,7 @@ pub struct ProgramData<'a> {
 
     pub render_data: RenderData<'a>,
 
-    pub cells: EntityContainer<Cell>,
+    pub cells: EntityContainer<DoubleBuffer<Cell>>,
     pub food: EntityContainer<Food>,
 
 }
@@ -112,6 +112,99 @@ pub struct GlyphTexture<'a> {
     pub texture: Texture<'a>,
     pub origin_x: i32,
     pub origin_y: i32,
+}
+
+
+
+
+
+#[derive(Debug)]
+pub struct EventsData {
+    pub list: Vec<Event>,
+    pub mouse_state: MouseState,
+}
+
+impl EventsData {
+
+    pub fn from_event_pump (event_pump: &mut EventPump) -> Self {
+        Self {
+            list: event_pump.poll_iter().filter(Self::filter_event).collect(),
+            mouse_state: event_pump.mouse_state(),
+        }
+    }
+
+    pub fn filter_event (event: &Event) -> bool {
+        matches!(event,
+            Event::Quit {..} |
+            Event::KeyDown {..} |
+            Event::KeyUp {..} |
+            Event::MouseWheel {..} |
+            Event::MouseButtonDown {..}
+        )
+    }
+
+}
+
+
+
+
+
+pub struct DoubleBuffer<T> {
+    pub a_is_main: bool,
+    pub a: T,
+    pub b: T,
+}
+
+impl<T> DoubleBuffer<T> {
+
+    pub fn get_main (&self) -> &T {
+        if self.a_is_main {
+            &self.a
+        } else {
+            &self.b
+        }
+    }
+
+    pub fn get_main_mut (&mut self) -> &mut T {
+        if self.a_is_main {
+            &mut self.a
+        } else {
+            &mut self.b
+        }
+    }
+
+    pub fn get_alt (&self) -> &T {
+        if self.a_is_main {
+            &self.b
+        } else {
+            &self.a
+        }
+    }
+
+    pub fn get_both (&mut self) -> (&mut T, &T) {
+        if self.a_is_main {
+            (&mut self.a, &self.b)
+        } else {
+            (&mut self.b, &self.a)
+        }
+    }
+
+    pub fn swap (&mut self) {
+        self.a_is_main = !self.a_is_main;
+    }
+
+}
+
+impl<T: Clone> DoubleBuffer<T> {
+
+    pub fn new (input: T) -> DoubleBuffer<T> {
+        Self {
+            a_is_main: true,
+            a: input.clone(),
+            b: input,
+        }
+    }
+
 }
 
 

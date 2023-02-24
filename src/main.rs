@@ -1,5 +1,5 @@
 // Started 02/11/23
-// Last updated 02/22/23
+// Last updated 02/23/23
 
 
 
@@ -11,6 +11,7 @@
 #![feature(box_syntax)]
 #![feature(map_many_mut)]
 #![feature(slice_take)]
+#![feature(duration_constants)]
 
 
 
@@ -59,6 +60,7 @@ mod render_mod;
 mod init;
 mod data_mod;
 mod fns;
+mod logger;
 mod prelude;
 
 
@@ -71,15 +73,27 @@ use prelude::*;
 
 fn add_test_data (program_data: &mut ProgramData) {
 
-    let cell_1 = Cell::new_with_vel(RawCell::new_fat_cell(), (1.5, 1.5), 1.0, 1.0, 0.0, (5.0, 0.0));
-    let cell_2 = Cell::new_with_vel(RawCell::new_fat_cell(), (2.5, 1.7), 1.0, 1.0, 0.0, (-5.0, 5.0));
-    let cell_3 = Cell::new_with_vel(RawCell::new_fat_cell(), (1.7, 2.5), 1.0, 1.0, 0.0, (0.0, -5.0));
-    let cell_1_id = program_data.cells.add_entity(cell_1).unwrap();
-    let cell_2_id = program_data.cells.add_entity(cell_2).unwrap();
-    let cell_3_id = program_data.cells.add_entity(cell_3).unwrap();
-    program_data.cells.master_list[cell_1_id.0].0.as_mut().unwrap().connected_cells.append(&mut vec!(cell_2_id, cell_3_id));
-    program_data.cells.master_list[cell_2_id.0].0.as_mut().unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_3_id));
-    program_data.cells.master_list[cell_3_id.0].0.as_mut().unwrap().connected_cells.append(&mut vec!(cell_1_id, cell_2_id));
+    for x in 0..30 {
+        for y in 0..30 {
+
+            let pos_1 = (x as f64 * 3. + 1.5, y as f64 * 3. + 1.5);
+            let pos_2 = (x as f64 * 3. + 2.5, y as f64 * 3. + 1.7);
+            let pos_3 = (x as f64 * 3. + 1.7, y as f64 * 3. + 2.5);
+            let mut cell_0 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_1, 1.0, 1.0, 0.0, (5.0, 0.0));
+            let mut cell_1 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_2, 1.0, 1.0, 0.0, (-5.0, 5.0));
+            let mut cell_2 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_3, 1.0, 1.0, 0.0, (0.0, -5.0));
+            let cell_0_id = program_data.cells.add_entity(DoubleBuffer::new(cell_0)).unwrap();
+            let cell_1_id = program_data.cells.add_entity(DoubleBuffer::new(cell_1)).unwrap();
+            let cell_2_id = program_data.cells.add_entity(DoubleBuffer::new(cell_2)).unwrap();
+            program_data.cells.master_list[cell_0_id.0].0.as_mut().unwrap().a.connected_cells = vec!(cell_1_id, cell_2_id);
+            program_data.cells.master_list[cell_1_id.0].0.as_mut().unwrap().a.connected_cells = vec!(cell_0_id, cell_2_id);
+            program_data.cells.master_list[cell_2_id.0].0.as_mut().unwrap().a.connected_cells = vec!(cell_0_id, cell_1_id);
+            program_data.cells.master_list[cell_0_id.0].0.as_mut().unwrap().b.connected_cells = vec!(cell_1_id, cell_2_id);
+            program_data.cells.master_list[cell_1_id.0].0.as_mut().unwrap().b.connected_cells = vec!(cell_0_id, cell_2_id);
+            program_data.cells.master_list[cell_2_id.0].0.as_mut().unwrap().b.connected_cells = vec!(cell_0_id, cell_1_id);
+
+        }
+    }
 
     program_data.food.add_entity(Food::new(3.5, 2.5, 1.0, 1.0));
 
@@ -99,6 +113,10 @@ pub fn main() -> Result<(), ProgramError> {
     let texture_creator = canvas.texture_creator();
 
     let mut program_data = init::init_program_data(&canvas, &texture_creator)?;
+    
+    //let mut log_path = fns::get_program_dir();
+    //log_path.push("log.txt");
+    //let mut logger = Logger::new(&log_path)?;
 
     add_test_data(&mut program_data);
 
@@ -108,7 +126,12 @@ pub fn main() -> Result<(), ProgramError> {
 
         let dt = last_update_instant.elapsed().as_secs_f64().min(0.03);
         last_update_instant = Instant::now();
-        update::update(&mut program_data, &mut event_pump, &canvas, dt)?;
+        let events_data = EventsData::from_event_pump(&mut event_pump);
+        //logger.log("\nNEXT UPDATE DATA:".as_bytes());
+        //logger.log(format!("events: {events_data:?}").as_bytes());
+        //logger.log(format!("dt: {dt}").as_bytes());
+        //let _ = logger.flush();
+        update::update(&mut program_data, &canvas, events_data, dt)?;
 
         render::render(&mut canvas, &mut program_data)?;
 
@@ -116,7 +139,7 @@ pub fn main() -> Result<(), ProgramError> {
         if last_fps_instant.elapsed().as_millis() > 1000 {
             println!("FPS: {fps_count}");
             fps_count = 0;
-            last_fps_instant = Instant::now();
+            last_fps_instant = last_fps_instant.checked_add(Duration::SECOND).unwrap();
         }
     }
 

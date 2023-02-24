@@ -4,7 +4,7 @@ use crate::prelude::*;
 
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Cell {
     pub is_active: bool,
     pub health: f64,
@@ -12,8 +12,6 @@ pub struct Cell {
     pub material: f64,
     pub x_vel: f64,
     pub y_vel: f64,
-    pub x_vel_copy: f64,
-    pub y_vel_copy: f64,
     pub raw_cell: RawCell,
     pub entity: RawEntity,
     pub connected_cells: Vec<EntityID>,
@@ -28,8 +26,6 @@ impl Cell {
             material,
             x_vel: 0.,
             y_vel: 0.,
-            x_vel_copy: 0.,
-            y_vel_copy: 0.,
             raw_cell,
             entity: RawEntity::new(x, y, 1., 1.),
             connected_cells: vec!(),
@@ -43,8 +39,6 @@ impl Cell {
             material,
             x_vel: vel.0,
             y_vel: vel.1,
-            x_vel_copy: vel.0,
-            y_vel_copy: vel.1,
             raw_cell,
             entity: RawEntity::new(pos.0, pos.1, 1., 1.),
             connected_cells: vec!(),
@@ -64,21 +58,21 @@ impl Cell {
     }
 }
 
-impl Entity for Cell {
+impl Entity for DoubleBuffer<Cell> {
     fn get_texture<'a> (&self, textures: &'a ProgramTextures<'a>) -> &'a Texture<'a> {
         &textures.circle
     }
 }
 
-impl AsRef<RawEntity> for Cell {
+impl AsRef<RawEntity> for DoubleBuffer<Cell> {
     fn as_ref (&self) -> &RawEntity {
-        &self.entity
+        &self.get_main().entity
     }
 }
 
-impl AsMut<RawEntity> for Cell {
+impl AsMut<RawEntity> for DoubleBuffer<Cell> {
     fn as_mut (&mut self) -> &mut RawEntity {
-        &mut self.entity
+        &mut self.get_main_mut().entity
     }
 }
 
@@ -86,7 +80,7 @@ impl AsMut<RawEntity> for Cell {
 
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum RawCell {
 
     Fat (FatCellData),
@@ -120,7 +114,7 @@ impl RawCell {
 
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FatCellData {
     pub extra_energy: f64,
     pub extra_material: f64,

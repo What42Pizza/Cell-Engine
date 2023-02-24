@@ -108,7 +108,7 @@ pub fn get_entity_rect (entity: &RawEntity, camera: &Camera, canvas_size: (u32, 
 
 
 pub fn draw_cell_information (cell_id: EntityID, program_data: &mut ProgramData, canvas: &mut WindowCanvas, canvas_size: (u32, u32)) -> Result<(), ProgramError> {
-    let cell = program_data.cells.get(cell_id).unwrap();
+    let cell = program_data.cells.get(cell_id).unwrap().get_main();
     let main_area = Area::new(canvas_size);
     let menu_area = main_area.get_sub_area(0.0, 0.02, 0., 0.96, 0.02, 0.43);
     render_fns::draw_menu_background(menu_area.to_rect(), canvas)?;
