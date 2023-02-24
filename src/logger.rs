@@ -11,13 +11,13 @@ impl Logger {
 
     pub fn new (output_path: &Path) -> Result<Self, std::io::Error> {
         //if output_path.exists() {fs::remove_file(&output_path)?;}
-        let output = File::create(&output_path)?;
+        let output = File::create(output_path)?;
         Ok(Self {output})
     }
 
     pub fn log (&mut self, input: &[u8]) {
         let _ = self.output.write_all(input);
-        let _ = self.output.write(&['\n' as u8]);
+        let _ = self.output.write(&[b'\n']);
     }
 
     pub fn flush (&mut self) -> Result<(), std::io::Error> {

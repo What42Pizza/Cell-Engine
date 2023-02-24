@@ -43,18 +43,18 @@ pub fn update_cells(program_data: &mut ProgramData, dt: f64) {
     if program_data.frame_count < 30 {return;}
 
     // main update
-    for i in 0..program_data.cells.master_list.len() {
-        let cell_data = &program_data.cells.master_list[i];
+    for (i, cell_data) in program_data.cells.master_list.iter().enumerate() {
+        //let cell_data = &program_data.cells.master_list[i];
         if cell_data.0.is_none() {continue;}
         let current_cell_id = (i, cell_data.1);
-        remove_invalid_ids(current_cell_id, &mut program_data.cells);
+        remove_invalid_ids(current_cell_id, &program_data.cells);
         let (grid_x, grid_y) = match update_single_cell(current_cell_id, program_data, dt) {
             CellUpdateResult::Alive (grid_x, grid_y) => (grid_x, grid_y),
             CellUpdateResult::Killed => continue,
         };
         update_cell_by_type(current_cell_id, program_data, dt);
-        update_connected_cells(current_cell_id, &mut program_data.cells, dt);
-        update_nearby_cells(current_cell_id, grid_x, grid_y, &mut program_data.cells, dt);
+        update_connected_cells(current_cell_id, &program_data.cells, dt);
+        update_nearby_cells(current_cell_id, grid_x, grid_y, &program_data.cells, dt);
     }
 
     // final physics
@@ -66,7 +66,7 @@ pub fn update_cells(program_data: &mut ProgramData, dt: f64) {
     }
 
     // sync feilds
-    program_data.cells.sync_feilds();
+    program_data.cells.locked_sync_feilds();
 
 }
 
@@ -74,15 +74,16 @@ pub fn update_cells(program_data: &mut ProgramData, dt: f64) {
 
 
 
-pub fn remove_invalid_ids (current_cell_id: EntityID, cells: &mut EntityContainer<DoubleBuffer<Cell>>) {
-    let current_cell = cells.master_list[current_cell_id.0].0.as_ref().unwrap().get_main();
+pub fn remove_invalid_ids (current_cell_id: EntityID, cells: &EntityContainer<Buffer<Cell>>) {
+    let current_cell = cells.master_list[current_cell_id.0].0.as_ref().unwrap().main();
     let mut id_indexes_to_remove = vec!();
     for (i, connected_cell_id) in current_cell.connected_cells.iter().enumerate().rev() {
         if !cells.id_is_valid(*connected_cell_id) {
             id_indexes_to_remove.push(i);
         }
     }
-    let current_cell = cells.master_list[current_cell_id.0].0.as_mut().unwrap().get_main_mut();
+    drop(current_cell);
+    let mut current_cell = cells.master_list[current_cell_id.0].0.as_ref().unwrap().main_mut();
     for id_to_remove in id_indexes_to_remove {
         current_cell.connected_cells.remove(id_to_remove);
     }
@@ -97,9 +98,9 @@ pub enum CellUpdateResult {
     Killed,
 }
 
-pub fn update_single_cell (current_cell_id: EntityID, program_data: &mut ProgramData, dt: f64) -> CellUpdateResult {
+pub fn update_single_cell (current_cell_id: EntityID, program_data: &ProgramData, dt: f64) -> CellUpdateResult {
     
-    let (cell_main, cell_alt) = program_data.cells.master_list[current_cell_id.0].0.as_mut().unwrap().get_both();
+    let (mut cell_main, cell_alt) = program_data.cells.master_list[current_cell_id.0].0.as_mut().unwrap().both_mut();
     let output = (cell_alt.entity.x as usize, cell_alt.entity.y as usize);
 
     //-----------------------//
@@ -138,7 +139,7 @@ pub fn update_single_cell (current_cell_id: EntityID, program_data: &mut Program
     cell_main.is_active = cell_alt.energy >= 0.;
     cell_main.entity.should_be_removed = cell_alt.health <= 0.;
     if cell_alt.entity.should_be_removed {
-        program_data.food.add_entity(Food::from_cell(cell_alt));
+        program_data.food.referenced_add_entity(Food::from_cell(&cell_alt));
         return CellUpdateResult::Killed;
     }
 
@@ -167,28 +168,31 @@ pub fn update_single_cell (current_cell_id: EntityID, program_data: &mut Program
 
 
 pub fn update_cell_by_type (current_cell_id: EntityID, program_data: &mut ProgramData, dt: f64) {
-    let (cell_main, cell_alt) = program_data.cells.master_list[current_cell_id.0].0.as_mut().unwrap().get_both();
-    if !cell_alt.is_active {return;}
-    match &mut cell_main.raw_cell {
+    let (mut cell_main, cell_alt) = program_data.cells.master_list[current_cell_id.0].0.as_mut().unwrap().both_mut();
+    let cell_main = &mut *cell_main;
+    let main_data = &mut cell_main.main_data;
+    let raw_cell = &mut cell_main.raw_cell;
+    if !cell_alt.main_data.is_active {return;}
+    match raw_cell {
 
         RawCell::Fat (cell_data) => {
             // transfer logic
             if cell_alt.energy > cell_data.energy_store_threshold {
                 let transfer_amount = (cell_alt.energy - cell_data.energy_release_threshold).min(cell_data.energy_store_rate) * dt;
-                cell_main.energy -= transfer_amount;
+                main_data.energy -= transfer_amount;
                 cell_data.extra_energy += transfer_amount;
             } else if cell_alt.energy < cell_data.energy_release_threshold {
                 let transfer_amount = (cell_data.energy_store_threshold - cell_alt.energy).min(cell_data.energy_release_rate) * dt;
-                cell_main.energy += transfer_amount;
+                main_data.energy += transfer_amount;
                 cell_data.extra_energy -= transfer_amount;
             }
             if cell_alt.material > cell_data.material_store_threshold {
                 let transfer_amount = (cell_alt.material - cell_data.material_release_threshold).min(cell_data.material_store_rate) * dt;
-                cell_main.material -= transfer_amount;
+                main_data.material -= transfer_amount;
                 cell_data.extra_energy += transfer_amount;
             } else if cell_alt.material < cell_data.material_release_threshold {
                 let transfer_amount = (cell_data.material_store_threshold - cell_alt.material).min(cell_data.material_release_rate) * dt;
-                cell_main.material += transfer_amount;
+                main_data.material += transfer_amount;
                 cell_data.extra_energy -= transfer_amount;
             }
         }
@@ -196,7 +200,7 @@ pub fn update_cell_by_type (current_cell_id: EntityID, program_data: &mut Progra
         RawCell::Photosynthesiser => {
             if cell_alt.energy >= 1.0 {return;}
             let photosynthesis_amount = (1.0 - cell_alt.energy).min(CELL_PHOTOSYNTHESISER_RATE) * dt;
-            cell_main.energy += photosynthesis_amount;
+            main_data.energy += photosynthesis_amount;
         }
 
     }
@@ -206,11 +210,11 @@ pub fn update_cell_by_type (current_cell_id: EntityID, program_data: &mut Progra
 
 
 
-pub fn update_connected_cells (current_cell_id: EntityID, cells: &mut EntityContainer<DoubleBuffer<Cell>>, dt: f64) {
+pub fn update_connected_cells (current_cell_id: EntityID, cells: &EntityContainer<Buffer<Cell>>, dt: f64) {
 
     // get cells
     let all_cell_ids = {
-        let cell_main = cells.master_list[current_cell_id.0].0.as_mut().unwrap().get_main();
+        let cell_main = cells.master_list[current_cell_id.0].0.as_mut().unwrap().main();
         let mut output = vec!(current_cell_id);
         for &connected_cell_id in &cell_main.connected_cells {
             output.push(connected_cell_id);
@@ -218,21 +222,21 @@ pub fn update_connected_cells (current_cell_id: EntityID, cells: &mut EntityCont
         output
     };
     let (current_cell, connected_cells) = get_current_and_others(&all_cell_ids, cells);
-    let (cell_main, cell_alt) = current_cell.get_both();
-    let connected_cells: Vec<(&mut Cell, &Cell)> = connected_cells.into_iter()
-        .map(DoubleBuffer::get_both)
+    let (mut cell_main, cell_alt) = current_cell.both_mut();
+    let connected_cells: Vec<(AtomicRefMut<Cell>, AtomicRef<Cell>)> = connected_cells.into_iter()
+        .map(Buffer::both_mut)
         .collect();
 
     // connected cells
-    for (connected_cell_main, connected_cell_alt) in connected_cells {
+    for (mut connected_cell_main, connected_cell_alt) in connected_cells {
 
         //-----------------------//
         //        ALWAYS:        //
         //-----------------------//
 
         // spring
-        let dp = cell_alt.pos_change_to(connected_cell_alt);
-        let dv = fns::move_point_to_line(cell_alt.vel_change_to(connected_cell_alt), dp);
+        let dp = cell_alt.pos_change_to(&connected_cell_alt);
+        let dv = fns::move_point_to_line(cell_alt.vel_change_to(&connected_cell_alt), dp);
         let dp_len = fns::vec_len(dp);
         let dv_len = fns::vec_len(dv);
         let force_from_dist = (CELL_CONNECTION_DISTANCE - dp_len) * CELL_CONNECTION_FORCE;
@@ -269,19 +273,19 @@ pub fn update_connected_cells (current_cell_id: EntityID, cells: &mut EntityCont
 
 
 
-pub fn update_nearby_cells (current_cell_id: EntityID, grid_x: usize, grid_y: usize, cells: &mut EntityContainer<DoubleBuffer<Cell>>, dt: f64) {
+pub fn update_nearby_cells (current_cell_id: EntityID, grid_x: usize, grid_y: usize, cells: &EntityContainer<Buffer<Cell>>, dt: f64) {
 
     // intersection force
     let mut all_cell_ids = fns::get_entity_ids_near_pos((grid_x, grid_y), cells);
     let current_cell_id = fns::find_item_index_custom(&all_cell_ids, |id| id.0 == current_cell_id.0).unwrap();
     all_cell_ids.swap(0, current_cell_id);
     let (current_cell, nearby_cells) = get_current_and_others(&all_cell_ids, cells);
-    let (cell_main, cell_alt) = current_cell.get_both();
-    let nearby_cells: Vec<(&mut Cell, &Cell)> = nearby_cells.into_iter()
-        .map(DoubleBuffer::get_both)
+    let (mut cell_main, cell_alt) = current_cell.both_mut();
+    let nearby_cells: Vec<(AtomicRefMut<Cell>, AtomicRef<Cell>)> = nearby_cells.into_iter()
+        .map(Buffer::both_mut)
         .collect();
-    for (other_cell_main, other_cell_alt) in nearby_cells {
-        let dist_vec = cell_alt.pos_change_to(other_cell_alt);
+    for (mut other_cell_main, other_cell_alt) in nearby_cells {
+        let dist_vec = cell_alt.pos_change_to(&other_cell_alt);
         let dist = fns::vec_len(dist_vec);
         if dist > 1. {continue;}
         let force = (1. - dist).sqrt() * CELL_INTERSECTION_FORCE;
@@ -296,8 +300,8 @@ pub fn update_nearby_cells (current_cell_id: EntityID, grid_x: usize, grid_y: us
 
 
 
-pub fn update_cell_final (current_cell_id: EntityID, cells: &mut EntityContainer<DoubleBuffer<Cell>>, dt: f64) {
-    let cell_main = cells.master_list[current_cell_id.0].0.as_mut().unwrap().get_main_mut();
+pub fn update_cell_final (current_cell_id: EntityID, cells: &mut EntityContainer<Buffer<Cell>>, dt: f64) {
+    let mut cell_main = cells.master_list[current_cell_id.0].0.as_mut().unwrap().main_mut();
 
     // apply vel
     cell_main.entity.x += cell_main.x_vel * dt;
@@ -310,9 +314,10 @@ pub fn update_cell_final (current_cell_id: EntityID, cells: &mut EntityContainer
     cell_main.entity.y = cell_main.entity.y.clamp(0., GRID_HEIGHT as f64 - 0.000001);
 
     // swap
-    //cells.master_list[current_cell_id.0].0.as_mut().unwrap().swap();
+    drop(cell_main);
     let cell_buffer = cells.master_list[current_cell_id.0].0.as_mut().unwrap();
-    cell_buffer.b = cell_buffer.a.clone();
+    let new_data = cell_buffer.main().clone();
+    *cell_buffer.alt_mut() = new_data;
 
 }
 
@@ -320,6 +325,7 @@ pub fn update_cell_final (current_cell_id: EntityID, cells: &mut EntityContainer
 
 
 
+/*
 pub fn get_current_and_others<'a, T: Entity> (ids: &[EntityID], entities: &'a mut EntityContainer<T>) -> (&'a mut T, Vec<&'a mut T>) {
     let id_indexes: Vec<usize> = ids.iter()
         .map(|v| v.0)
@@ -330,3 +336,4 @@ pub fn get_current_and_others<'a, T: Entity> (ids: &[EntityID], entities: &'a mu
         .collect();
     (all_cells.remove(0), all_cells)
 }
+*/

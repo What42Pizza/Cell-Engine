@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use crate::prelude::*;
 
 
@@ -6,49 +8,58 @@ use crate::prelude::*;
 
 #[derive(Debug, Clone)]
 pub struct Cell {
+    pub main_data: MainCellData,
+    pub raw_cell: RawCell,
+    pub entity: RawEntity,
+}
+
+#[derive(Debug, Clone)]
+pub struct MainCellData {
     pub is_active: bool,
     pub health: f64,
     pub energy: f64,
     pub material: f64,
     pub x_vel: f64,
     pub y_vel: f64,
-    pub raw_cell: RawCell,
-    pub entity: RawEntity,
     pub connected_cells: Vec<EntityID>,
 }
 
 impl Cell {
     pub fn new (raw_cell: RawCell, x: f64, y: f64, health: f64, energy: f64, material: f64) -> Self {
         Self {
-            is_active: true,
-            health,
-            energy,
-            material,
-            x_vel: 0.,
-            y_vel: 0.,
+            main_data: MainCellData {
+                is_active: true,
+                health,
+                energy,
+                material,
+                x_vel: 0.,
+                y_vel: 0.,
+                connected_cells: vec!(),
+            },
             raw_cell,
             entity: RawEntity::new(x, y, 1., 1.),
-            connected_cells: vec!(),
         }
     }
     pub fn new_with_vel (raw_cell: RawCell, pos: (f64, f64), health: f64, energy: f64, material: f64, vel: (f64, f64)) -> Self {
         Self {
-            is_active: true,
-            health,
-            energy,
-            material,
-            x_vel: vel.0,
-            y_vel: vel.1,
+            main_data: MainCellData {
+                is_active: true,
+                health,
+                energy,
+                material,
+                x_vel: vel.0,
+                y_vel: vel.1,
+                connected_cells: vec!(),
+            },
             raw_cell,
             entity: RawEntity::new(pos.0, pos.1, 1., 1.),
-            connected_cells: vec!(),
         }
     }
     pub fn pos_change_to (&self, other: &Cell) -> (f64, f64) {
         (other.entity.x - self.entity.x, other.entity.y - self.entity.y)
     }
     pub fn vel_change_to(&self, other: &Cell) -> (f64, f64) {
-        (other.x_vel - self.x_vel, other.y_vel - self.y_vel)
+        (other.main_data.x_vel - self.main_data.x_vel, other.main_data.y_vel - self.main_data.y_vel)
     }
     pub fn distance_to (&self, other: &Cell) -> f64 {
         let (self_x, self_y) = (self.entity.x, self.entity.y);
@@ -58,21 +69,46 @@ impl Cell {
     }
 }
 
-impl Entity for DoubleBuffer<Cell> {
+impl Entity for Buffer<Cell> {
     fn get_texture<'a> (&self, textures: &'a ProgramTextures<'a>) -> &'a Texture<'a> {
         &textures.circle
     }
 }
 
-impl AsRef<RawEntity> for DoubleBuffer<Cell> {
-    fn as_ref (&self) -> &RawEntity {
-        &self.get_main().entity
+impl AsRef<AtomicRefCell<dyn AsRef<RawEntity>>> for Buffer<Cell> {
+    fn as_ref(&self) -> &AtomicRefCell<dyn AsRef<RawEntity>> {
+        &self.main
     }
 }
 
-impl AsMut<RawEntity> for DoubleBuffer<Cell> {
-    fn as_mut (&mut self) -> &mut RawEntity {
-        &mut self.get_main_mut().entity
+impl AsMut<AtomicRefCell<dyn AsMut<RawEntity>>> for Buffer<Cell> {
+    fn as_mut(&mut self) -> &mut AtomicRefCell<dyn AsMut<RawEntity>> {
+        &mut self.main
+    }
+}
+
+impl AsRef<RawEntity> for Cell {
+    fn as_ref(&self) -> &RawEntity {
+        &self.entity
+    }
+}
+
+impl AsMut<RawEntity> for Cell {
+    fn as_mut(&mut self) -> &mut RawEntity {
+        &mut self.entity
+    }
+}
+
+impl Deref for Cell {
+    type Target = MainCellData;
+    fn deref(&self) -> &MainCellData {
+        &self.main_data
+    }
+}
+
+impl DerefMut for Cell {
+    fn deref_mut(&mut self) -> &mut MainCellData {
+        &mut self.main_data
     }
 }
 

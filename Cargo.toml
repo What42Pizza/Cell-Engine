@@ -1,14 +1,15 @@
 [package]
-name = "sdl_project_template"
+name = "cell_engine"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hashbrown = {version = "0.13.*", features = ["rayon", "raw"]}
+hashbrown = {version = "0.13.*", features = ["rayon"]}
 array-init = "2.1.*"
 lerp = "0.4.*"
 num-traits = "0.2.15"
 ab_glyph = "0.2.20"
+atomic_refcell = "0.1.9"
 #serde-hjson = "0.9.*"
 #regex = "1.7.*"
 #derive_is_enum_variant = "0.1.*"
@@ -18,4 +19,4 @@ ab_glyph = "0.2.20"
 [dependencies.sdl2]
 version = "0.35.*"
 default-features = false
-features = ["image"]#, "ttf"]
+features = ["image"]

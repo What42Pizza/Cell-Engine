@@ -100,10 +100,10 @@ pub fn get_screen_item_at_pos (x: i32, y: i32, program_data: &ProgramData, canva
     let map_pos = fns::convert_screen_to_grid((x, y), &program_data.camera, canvas.output_size()?);
     let grid_pos = (map_pos.0 as usize, map_pos.1 as usize);
 
-    if let Some(entity_id) = get_entity_at_pos(grid_pos, map_pos, &program_data.cells) {
+    if let Some(entity_id) = locked_get_entity_at_pos(grid_pos, map_pos, &program_data.cells) {
         return Ok(ScreenItem::Cell(entity_id));
     }
-    if let Some(entity_id) = get_entity_at_pos(grid_pos, map_pos, &program_data.food) {
+    if let Some(entity_id) = referenced_get_entity_at_pos(grid_pos, map_pos, &program_data.food) {
         return Ok(ScreenItem::Food(entity_id));
     }
 
@@ -112,12 +112,27 @@ pub fn get_screen_item_at_pos (x: i32, y: i32, program_data: &ProgramData, canva
 
 
 
-pub fn get_entity_at_pos<T: Entity> (grid_pos: (usize, usize), map_pos: (f64, f64), entities: &EntityContainer<T>) -> Option<EntityID> {
+pub fn referenced_get_entity_at_pos<T: Entity + AsRef<RawEntity>> (grid_pos: (usize, usize), map_pos: (f64, f64), entities: &EntityContainer<T>) -> Option<EntityID> {
     let entity_ids = fns::get_entity_ids_near_pos(grid_pos, entities);
     for current_entity_id in entity_ids {
         let entity = entities.master_list[current_entity_id.0].0.as_ref().unwrap().as_ref();
         let dist_vec = (map_pos.0 - entity.x, map_pos.1 - entity.y);
         let dist_vec = (dist_vec.0 / entity.width, dist_vec.1 / entity.height);
+        let dist_to_cell_center = fns::vec_len(dist_vec);
+        if dist_to_cell_center <= 0.5 {
+            return Some(current_entity_id);
+        }
+    }
+    None
+}
+
+pub fn locked_get_entity_at_pos<T: Entity + AsRef<AtomicRefCell<dyn AsRef<RawEntity>>>> (grid_pos: (usize, usize), map_pos: (f64, f64), entities: &EntityContainer<T>) -> Option<EntityID> {
+    let entity_ids = fns::get_entity_ids_near_pos(grid_pos, entities);
+    for current_entity_id in entity_ids {
+        let entity = entities.master_list[current_entity_id.0].0.as_ref().unwrap().as_ref().borrow();
+        let raw_entity = entity.as_ref();
+        let dist_vec = (map_pos.0 - raw_entity.x, map_pos.1 - raw_entity.y);
+        let dist_vec = (dist_vec.0 / raw_entity.width, dist_vec.1 / raw_entity.height);
         let dist_to_cell_center = fns::vec_len(dist_vec);
         if dist_to_cell_center <= 0.5 {
             return Some(current_entity_id);

@@ -16,7 +16,7 @@ pub struct ProgramData<'a> {
 
     pub render_data: RenderData<'a>,
 
-    pub cells: EntityContainer<DoubleBuffer<Cell>>,
+    pub cells: EntityContainer<Buffer<Cell>>,
     pub food: EntityContainer<Food>,
 
 }
@@ -149,62 +149,43 @@ impl EventsData {
 
 
 
-pub struct DoubleBuffer<T> {
-    pub a_is_main: bool,
-    pub a: T,
-    pub b: T,
+pub struct Buffer<T> {
+    pub main: AtomicRefCell<T>,
+    pub alt: AtomicRefCell<T>,
 }
 
-impl<T> DoubleBuffer<T> {
+impl<T> Buffer<T> {
 
-    pub fn get_main (&self) -> &T {
-        if self.a_is_main {
-            &self.a
-        } else {
-            &self.b
-        }
+    pub fn main (&self) -> AtomicRef<T> {
+        self.main.borrow()
+    }
+    pub fn main_mut (&self) -> AtomicRefMut<T> {
+        self.main.borrow_mut()
     }
 
-    pub fn get_main_mut (&mut self) -> &mut T {
-        if self.a_is_main {
-            &mut self.a
-        } else {
-            &mut self.b
-        }
+    pub fn alt (&self) -> AtomicRef<T> {
+        self.alt.borrow()
+    }
+    pub fn alt_mut (&mut self) -> AtomicRefMut<T> {
+        self.alt.borrow_mut()
     }
 
-    pub fn get_alt (&self) -> &T {
-        if self.a_is_main {
-            &self.b
-        } else {
-            &self.a
-        }
+    pub fn both (&self) -> (AtomicRef<T>, AtomicRef<T>) {
+        (self.main.borrow(), self.alt.borrow())
     }
-
-    pub fn get_both (&mut self) -> (&mut T, &T) {
-        if self.a_is_main {
-            (&mut self.a, &self.b)
-        } else {
-            (&mut self.b, &self.a)
-        }
-    }
-
-    pub fn swap (&mut self) {
-        self.a_is_main = !self.a_is_main;
+    pub fn both_mut (&mut self) -> (AtomicRefMut<T>, AtomicRef<T>) {
+        (self.main.borrow_mut(), self.alt.borrow())
     }
 
 }
 
-impl<T: Clone> DoubleBuffer<T> {
-
-    pub fn new (input: T) -> DoubleBuffer<T> {
+impl<T: Clone> Buffer<T> {
+    pub fn new (input: T) -> Buffer<T> {
         Self {
-            a_is_main: true,
-            a: input.clone(),
-            b: input,
+            main: AtomicRefCell::new(input.clone()),
+            alt: AtomicRefCell::new(input),
         }
     }
-
 }
 
 
@@ -232,7 +213,7 @@ impl Food {
         }
     }
     pub fn from_cell (cell: &Cell) -> Self {
-        Self::new(cell.entity.x, cell.entity.y, cell.energy, cell.material)
+        Self::new(cell.entity.x, cell.entity.y, cell.main_data.energy, cell.main_data.material)
     }
 }
 
