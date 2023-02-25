@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use sdl2::{keyboard::Keycode, render::{TextureCreator, WindowCanvas}, video::WindowContext, surface::Surface, event::Event, mouse::MouseState, EventPump};
+use sdl2::{keyboard::Keycode, render::TextureCreator, video::WindowContext, event::Event, mouse::MouseState, EventPump};
 use ab_glyph::FontVec;
 
 
@@ -16,8 +16,8 @@ pub struct ProgramData<'a> {
 
     pub render_data: RenderData<'a>,
 
-    pub cells: EntityContainer<Buffer<Cell>>,
-    pub food: EntityContainer<Buffer<Food>>,
+    pub cells: EntityContainer<Cell>,
+    pub food: EntityContainer<Food>,
 
 }
 
@@ -149,49 +149,6 @@ impl EventsData {
 
 
 
-pub struct Buffer<T> {
-    pub main: AtomicRefCell<T>,
-    pub alt: AtomicRefCell<T>,
-}
-
-impl<T> Buffer<T> {
-
-    pub fn main (&self) -> AtomicRef<T> {
-        self.main.read()
-    }
-    pub fn main_mut (&self) -> AtomicRefMut<T> {
-        self.main.write()
-    }
-
-    pub fn alt (&self) -> AtomicRef<T> {
-        self.alt.read()
-    }
-    pub fn alt_mut (&self) -> AtomicRefMut<T> {
-        self.alt.write()
-    }
-
-    pub fn both (&self) -> (AtomicRef<T>, AtomicRef<T>) {
-        (self.main.read(), self.alt.read())
-    }
-    pub fn both_mut (&self) -> (AtomicRefMut<T>, AtomicRef<T>) {
-        (self.main.write(), self.alt.read())
-    }
-
-}
-
-impl<T: Clone> Buffer<T> {
-    pub fn new (input: T) -> Buffer<T> {
-        Self {
-            main: AtomicRefCell::new(input.clone()),
-            alt: AtomicRefCell::new(input),
-        }
-    }
-}
-
-
-
-
-
 
 
 
@@ -214,25 +171,13 @@ impl Food {
         }
     }
     pub fn from_cell (cell: &Cell) -> Self {
-        Self::new(cell.entity.x, cell.entity.y, cell.main_data.energy, cell.main_data.material)
+        Self::new(cell.entity.x, cell.entity.y, cell.energy, cell.material)
     }
 }
 
-impl Entity for Buffer<Food> {
+impl Entity for Food {
     fn get_texture<'a> (&self, textures: &'a ProgramTextures<'a>) -> &'a Texture<'a> {
         &textures.food
-    }
-}
-
-impl AsRef<AtomicRefCell<dyn AsRef<RawEntity>>> for Buffer<Food> {
-    fn as_ref(&self) -> &AtomicRefCell<dyn AsRef<RawEntity>> {
-        &self.main
-    }
-}
-
-impl AsMut<AtomicRefCell<dyn AsMut<RawEntity>>> for Buffer<Food> {
-    fn as_mut(&mut self) -> &mut AtomicRefCell<dyn AsMut<RawEntity>> {
-        &mut self.main
     }
 }
 

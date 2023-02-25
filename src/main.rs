@@ -1,10 +1,10 @@
 // Started 02/11/23
-// Last updated 02/23/23
+// Last updated 02/24/23
 
 
 
 // default rust
-#![allow(unused, incomplete_features)]
+#![allow(unused)]
 #![warn(unused_must_use)]
 
 // nightly features
@@ -13,7 +13,6 @@
 #![feature(slice_take)]
 #![feature(duration_constants)]
 #![feature(type_alias_impl_trait)]
-#![feature(inherent_associated_types)]
 
 
 
@@ -81,23 +80,20 @@ fn add_test_data (program_data: &mut ProgramData) {
             let pos_1 = (x as f64 * 3. + 1.5, y as f64 * 3. + 1.5);
             let pos_2 = (x as f64 * 3. + 2.5, y as f64 * 3. + 1.7);
             let pos_3 = (x as f64 * 3. + 1.7, y as f64 * 3. + 2.5);
-            let mut cell_0 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_1, 1.0, 1.0, 0.0, (5.0, 0.0));
-            let mut cell_1 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_2, 1.0, 1.0, 0.0, (-5.0, 5.0));
-            let mut cell_2 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_3, 1.0, 1.0, 0.0, (0.0, -5.0));
-            let cell_0_id = program_data.cells.add_entity(Buffer::new(cell_0)).unwrap();
-            let cell_1_id = program_data.cells.add_entity(Buffer::new(cell_1)).unwrap();
-            let cell_2_id = program_data.cells.add_entity(Buffer::new(cell_2)).unwrap();
-            program_data.cells.master_list[cell_0_id.0].0.as_mut().unwrap().main_mut().connected_cells = vec!(cell_1_id, cell_2_id);
-            program_data.cells.master_list[cell_1_id.0].0.as_mut().unwrap().main_mut().connected_cells = vec!(cell_0_id, cell_2_id);
-            program_data.cells.master_list[cell_2_id.0].0.as_mut().unwrap().main_mut().connected_cells = vec!(cell_0_id, cell_1_id);
-            program_data.cells.master_list[cell_0_id.0].0.as_mut().unwrap().alt_mut().connected_cells = vec!(cell_1_id, cell_2_id);
-            program_data.cells.master_list[cell_1_id.0].0.as_mut().unwrap().alt_mut().connected_cells = vec!(cell_0_id, cell_2_id);
-            program_data.cells.master_list[cell_2_id.0].0.as_mut().unwrap().alt_mut().connected_cells = vec!(cell_0_id, cell_1_id);
+            let cell_0 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_1, 1.0, 1.0, 0.0, (5.0, 0.0));
+            let cell_1 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_2, 1.0, 1.0, 0.0, (-5.0, 5.0));
+            let cell_2 = Cell::new_with_vel(RawCell::new_fat_cell(), pos_3, 1.0, 1.0, 0.0, (0.0, -5.0));
+            let cell_0_id = program_data.cells.add_entity(cell_0).unwrap();
+            let cell_1_id = program_data.cells.add_entity(cell_1).unwrap();
+            let cell_2_id = program_data.cells.add_entity(cell_2).unwrap();
+            program_data.cells.master_list[cell_0_id.0].0.as_mut().unwrap().connected_cells = vec!(cell_1_id, cell_2_id);
+            program_data.cells.master_list[cell_1_id.0].0.as_mut().unwrap().connected_cells = vec!(cell_0_id, cell_2_id);
+            program_data.cells.master_list[cell_2_id.0].0.as_mut().unwrap().connected_cells = vec!(cell_0_id, cell_1_id);
 
         }
     }
 
-    program_data.food.add_entity(Buffer::new(Food::new(3.5, 2.5, 1.0, 1.0)));
+    program_data.food.add_entity(Food::new(3.5, 2.5, 1.0, 1.0));
 
 }
 

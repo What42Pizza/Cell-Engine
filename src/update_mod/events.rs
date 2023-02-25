@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use sdl2::{event::Event, keyboard::Keycode, EventPump, render::WindowCanvas, mouse::{MouseState, MouseButton}};
+use sdl2::{event::Event, keyboard::Keycode, render::WindowCanvas, mouse::{MouseState, MouseButton}};
 
 
 
@@ -112,11 +112,10 @@ pub fn get_screen_item_at_pos (x: i32, y: i32, program_data: &ProgramData, canva
 
 
 
-pub fn get_entity_at_pos<T: Entity + AsRef<AtomicRefCell<dyn AsRef<RawEntity>>>> (grid_pos: (usize, usize), map_pos: (f64, f64), entities: &EntityContainer<T>) -> Option<EntityID> {
+pub fn get_entity_at_pos<T: Entity + AsRef<RawEntity>> (grid_pos: (usize, usize), map_pos: (f64, f64), entities: &EntityContainer<T>) -> Option<EntityID> {
     let entity_ids = fns::get_entity_ids_near_pos(grid_pos, entities);
     for current_entity_id in entity_ids {
-        let entity = entities.master_list[current_entity_id.0].0.as_ref().unwrap().as_ref().read();
-        let raw_entity = entity.as_ref();
+        let raw_entity = entities.master_list[current_entity_id.0].0.as_ref().unwrap().as_ref();
         let dist_vec = (map_pos.0 - raw_entity.x, map_pos.1 - raw_entity.y);
         let dist_vec = (dist_vec.0 / raw_entity.width, dist_vec.1 / raw_entity.height);
         let dist_to_cell_center = fns::vec_len(dist_vec);

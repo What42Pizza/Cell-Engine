@@ -38,7 +38,6 @@ pub fn init_sdl2() -> (Sdl, Canvas<Window>) {
 
 
 pub fn init_program_data<'a> (canvas: &Canvas<Window>, texture_creator: &'a TextureCreator<WindowContext>) -> Result<ProgramData<'a>, ProgramError> {
-    let (width, height) = canvas.output_size()?;
 
     let textures = load_textures(texture_creator)?;
 

@@ -1,5 +1,5 @@
 use crate::prelude::*;
-use sdl2::{render::{WindowCanvas, TextureCreator}, surface::Surface, video::WindowContext};
+use sdl2::{render::WindowCanvas};
 
 
 
@@ -86,12 +86,11 @@ pub fn render(canvas: &mut WindowCanvas, program_data: &mut ProgramData) -> Resu
 
 
 
-pub fn draw_entities<T: Entity + AsRef<AtomicRefCell<dyn AsRef<RawEntity>>>> (x: usize, y: usize, entities_container: &EntityContainer<T>, camera: &Camera, canvas: &mut WindowCanvas, canvas_size: (u32, u32), textures: &ProgramTextures) -> Result<(), ProgramError> {
+pub fn draw_entities<T: Entity + AsRef<RawEntity>> (x: usize, y: usize, entities_container: &EntityContainer<T>, camera: &Camera, canvas: &mut WindowCanvas, canvas_size: (u32, u32), textures: &ProgramTextures) -> Result<(), ProgramError> {
     let current_slot = &entities_container.entities_by_pos[x + y * GRID_WIDTH];
     for cell_id in current_slot {
         let entity = entities_container.get(*cell_id).unwrap();
-        let raw_entity = entity.as_ref().read();
-        let raw_entity = raw_entity.as_ref();
+        let raw_entity = entity.as_ref();
         canvas.copy(entity.get_texture(textures), None, get_entity_rect(raw_entity, camera, canvas_size))?;
     }
     Ok(())
@@ -110,7 +109,7 @@ pub fn get_entity_rect (entity: &RawEntity, camera: &Camera, canvas_size: (u32, 
 
 
 pub fn draw_cell_information (cell_id: EntityID, program_data: &mut ProgramData, canvas: &mut WindowCanvas, canvas_size: (u32, u32)) -> Result<(), ProgramError> {
-    let cell = program_data.cells.get(cell_id).unwrap().main();
+    let cell = program_data.cells.get(cell_id).unwrap();
     let main_area = Area::new(canvas_size);
     let menu_area = main_area.get_sub_area(0.0, 0.02, 0., 0.96, 0.02, 0.43);
     render_fns::draw_menu_background(menu_area.to_rect(), canvas)?;
@@ -120,21 +119,21 @@ pub fn draw_cell_information (cell_id: EntityID, program_data: &mut ProgramData,
     render_fns::draw_text("Cell Information", text_pos, 0.5, canvas_size.1 / 20, canvas, &mut program_data.render_data)?;
 
     // "Health: "
-    let health = (cell.main_data.health * 100.).round() / 100.;
+    let health = (cell.health * 100.).round() / 100.;
     let text_pos = menu_area.get_point(0.05, 0.09, 0.0);
     render_fns::draw_text("Health: ".to_string() + &health.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.render_data)?;
 
     // "Energy: "
-    let energy = (cell.main_data.energy * 100.).round() / 100.;
+    let energy = (cell.energy * 100.).round() / 100.;
     let text_pos = menu_area.get_point(0.05, 0.14, 0.0);
     render_fns::draw_text("Energy: ".to_string() + &energy.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.render_data)?;
 
     // "Material: "
-    let material = (cell.main_data.material * 100.).round() / 100.;
+    let material = (cell.material * 100.).round() / 100.;
     let text_pos = menu_area.get_point(0.05, 0.19, 0.0);
     render_fns::draw_text("Material: ".to_string() + &material.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.render_data)?;
 
-    let mut cell_data_area = menu_area.get_sub_area(0.05, 0.25, 0.9, 0.73, 0., 0.);
+    let cell_data_area = menu_area.get_sub_area(0.05, 0.25, 0.9, 0.73, 0., 0.);
     render_fns::draw_menu_background(cell_data_area.to_rect(), canvas)?;
 
     match &cell.raw_cell {

@@ -1,4 +1,4 @@
-pub use crate::{*, update_mod::*, render_mod::*, logger::*,
+pub use crate::{*, update_mod::{*, update_data::*}, render_mod::*, logger::*,
     data_mod::{general_data::*, cell_data::*, entity_container::*, errors::*},
 };
 

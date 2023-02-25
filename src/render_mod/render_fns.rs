@@ -1,6 +1,5 @@
-use sdl2::{render::{WindowCanvas, TextureCreator}, sys::Window, video::WindowContext};
-
 use crate::prelude::*;
+use sdl2::{render::WindowCanvas};
 
 
 
@@ -103,7 +102,6 @@ pub fn render_glyph<'a> (glyph: &Glyph, render_data: &mut RenderData<'a>) -> Res
     // render to vec
     let mut pixel_data = Vec::with_capacity(width * height);
     glyph_outline.draw(|x, y, c| {
-        let index = x as usize + y as usize * width;
         pixel_data.push(255);
         pixel_data.push(255);
         pixel_data.push(255);

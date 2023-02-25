@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use crate::prelude::*;
 
 
@@ -12,7 +10,6 @@ pub type EntityID = (usize, u32);
 
 pub struct EntityContainer<T: Entity> {
     pub master_list: Vec<(Option<T>, u32)>,
-    pub entities_to_add: Mutex<Vec<T>>,
     pub current_index: usize,
     pub empty_slots: u32,
     pub entities_by_pos: Vec<Vec<EntityID>>, // 1d array for grid, 1d array for entities in that slot
@@ -66,7 +63,6 @@ impl<T: Entity> EntityContainer<T> {
         let grid = vec![vec!(); GRID_WIDTH * GRID_HEIGHT];
         Self {
             master_list: vec!(),
-            entities_to_add: Mutex::new(vec!()),
             current_index: 0,
             empty_slots: 0,
             entities_by_pos: grid,
@@ -90,27 +86,21 @@ impl<T: Entity> EntityContainer<T> {
         entity_data.0.is_some() && entity_data.1 == id.1
     }
 
-    pub fn buffered_add_entity (&self, entity: T) {
-        self.entities_to_add.lock().unwrap().push(entity);
-    }
-
 }
 
 
 
 
 
-impl<T: Entity + AsRef<AtomicRefCell<dyn AsRef<RawEntity>>> + AsMut<AtomicRefCell<dyn AsMut<RawEntity>>>> EntityContainer<T> {
+impl<T: Entity + AsRef<RawEntity> + AsMut<RawEntity>> EntityContainer<T> {
 
 
 
     pub fn add_entity (&mut self, entity: T) -> Option<EntityID> {
-        let raw_entity_1 = entity.as_ref().read();
-        let raw_entity_2 = raw_entity_1.as_ref();
+        let raw_entity = entity.as_ref();
 
         if self.master_list.len() >= MAX_ENTITIES_COUNT {return None;}
-        let (current_grid_x, current_grid_y) = (raw_entity_2.current_grid_x, raw_entity_2.current_grid_y);
-        drop(raw_entity_1);
+        let (current_grid_x, current_grid_y) = (raw_entity.current_grid_x, raw_entity.current_grid_y);
 
         // add to master list
         let entity_id;
@@ -144,8 +134,7 @@ impl<T: Entity + AsRef<AtomicRefCell<dyn AsRef<RawEntity>>> + AsMut<AtomicRefCel
 
         for (i, entity_data) in self.master_list.iter_mut().enumerate() {
             let Some(entity) = entity_data.0.as_mut() else {continue;};
-            let mut raw_entity = entity.as_mut().write();
-            let raw_entity = raw_entity.as_mut();
+            let mut raw_entity = entity.as_mut();
             let id = (i, entity_data.1);
 
             // remove if should_be_removed
@@ -177,8 +166,6 @@ impl<T: Entity + AsRef<AtomicRefCell<dyn AsRef<RawEntity>>> + AsMut<AtomicRefCel
             self.master_list[current_index].0 = None;
             self.empty_slots += 1;
         }
-
-        // add entities in buffer
 
     }
 
