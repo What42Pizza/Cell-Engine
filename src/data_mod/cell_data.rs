@@ -95,14 +95,14 @@ impl RawCell {
         Self::Fat (FatCellData {
             extra_energy: 0.0,
             extra_material: 0.0,
-            energy_store_threshold: CELL_FAT_ENERGY_STORE_THRESHOLD.2,
-            energy_release_threshold: CELL_FAT_ENERGY_RELEASE_THRESHOLD.2,
-            energy_store_rate: CELL_FAT_ENERGY_STORE_RATE.2,
-            energy_release_rate: CELL_FAT_ENERGY_RELEASE_RATE.2,
-            material_store_threshold: CELL_FAT_MATERIAL_STORE_THRESHOLD.2,
+            energy_store_threshold:     CELL_FAT_ENERGY_STORE_THRESHOLD.2,
+            energy_release_threshold:   CELL_FAT_ENERGY_RELEASE_THRESHOLD.2,
+            energy_store_rate:          CELL_FAT_ENERGY_STORE_RATE.2,
+            energy_release_rate:        CELL_FAT_ENERGY_RELEASE_RATE.2,
+            material_store_threshold:   CELL_FAT_MATERIAL_STORE_THRESHOLD.2,
             material_release_threshold: CELL_FAT_MATERIAL_RELEASE_THRESHOLD.2,
-            material_store_rate: CELL_FAT_MATERIAL_STORE_RATE.2,
-            material_release_rate: CELL_FAT_MATERIAL_RELEASE_RATE.2,
+            material_store_rate:        CELL_FAT_MATERIAL_STORE_RATE.2,
+            material_release_rate:      CELL_FAT_MATERIAL_RELEASE_RATE.2,
         })
     }
 

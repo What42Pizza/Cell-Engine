@@ -1,5 +1,5 @@
 // Started 02/11/23
-// Last updated 02/24/23
+// Last updated 02/26/23
 
 
 
@@ -32,14 +32,16 @@ const CELL_DRAG_COEF: f64 = 0.1;
 const CELL_CONNECTION_FORCE: f64 = 10.0;
 const CELL_CONNECTION_DRAG: f64 = 3.0;
 const CELL_CONNECTION_DISTANCE: f64 = 1.1;
-const CELL_INTERSECTION_FORCE: f64 = 100.0;
+const CELL_INTERSECTION_FORCE: f64 = 50.0;
 
 const CELL_ENERGY_USE_RATE: f64 = 0.001;
 const CELL_HEALING_RATE: f64 = 0.1;
 const CELL_HEALING_ENERGY_COST: f64 = 0.2;
 const CELL_HEALING_MATERIAL_COST: f64 = 0.5;
 const CELL_ENERGY_TRANSFER_RATE: f64 = 0.25;
+const CELL_ENERGY_TRANSFER_THRESHOLD: f64 = 0.025;
 const CELL_MATERIAL_TRANSFER_RATE: f64 = 0.1;
+const CELL_MATERIAL_TRANSFER_THRESHOLD: f64 = 0.025;
 
 // Cell Type Settings
 
@@ -129,7 +131,9 @@ pub fn main() -> Result<(), ProgramError> {
         //logger.log(format!("events: {events_data:?}").as_bytes());
         //logger.log(format!("dt: {dt}").as_bytes());
         //let _ = logger.flush();
+        //let start = Instant::now();
         update::update(&mut program_data, &canvas, events_data, dt)?;
+        //println!("{}", start.elapsed().as_secs_f64());
 
         render::render(&mut canvas, &mut program_data)?;
 

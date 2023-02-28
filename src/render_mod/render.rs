@@ -133,7 +133,7 @@ pub fn draw_cell_information (cell_id: EntityID, program_data: &mut ProgramData,
     let text_pos = menu_area.get_point(0.05, 0.19, 0.0);
     render_fns::draw_text("Material: ".to_string() + &material.to_string(), text_pos, 0.0, canvas_size.1 / 25, canvas, &mut program_data.render_data)?;
 
-    let cell_data_area = menu_area.get_sub_area(0.05, 0.25, 0.9, 0.73, 0., 0.);
+    let cell_data_area = menu_area.get_sub_area(0.05, 0.28, 0.9, 0.70, 0., 0.);
     render_fns::draw_menu_background(cell_data_area.to_rect(), canvas)?;
 
     match &cell.raw_cell {
@@ -151,8 +151,18 @@ pub fn draw_cell_information (cell_id: EntityID, program_data: &mut ProgramData,
 pub fn draw_cell_information_fat (cell_data: &FatCellData, cell_data_area: Area, canvas: &mut WindowCanvas, canvas_size: (u32, u32), render_data: &mut RenderData) -> Result<(), ProgramError> {
 
     // "Fat Cell"
-    let text_pos = cell_data_area.get_point(0.05, 0.19, 0.0);
+    let text_pos = cell_data_area.get_point(0.5, 0.02, 0.0);
     render_fns::draw_text("Fat Cell", text_pos, 0.5, canvas_size.1 / 20, canvas, render_data)?;
+
+    // "Extra energy: "
+    let extra_energy = (cell_data.extra_energy * 100.).round() / 100.;
+    let text_pos = cell_data_area.get_point(0.05, 0.12, 0.0);
+    render_fns::draw_text("Extra energy: ".to_string() + &extra_energy.to_string(), text_pos, 0.0, canvas_size.1 / 30, canvas, render_data)?;
+
+    // "Extra material: "
+    let extra_material = (cell_data.extra_material * 100.).round() / 100.;
+    let text_pos = cell_data_area.get_point(0.05, 0.18, 0.0);
+    render_fns::draw_text("Extra material: ".to_string() + &extra_material.to_string(), text_pos, 0.0, canvas_size.1 / 30, canvas, render_data)?;
 
     Ok(())
 }

@@ -18,12 +18,11 @@ pub fn update (program_data: &mut ProgramData, canvas: &WindowCanvas, events_dat
     unsafe {
         TOTAL_TIME += start.elapsed().as_secs_f64();
     }
-
     if program_data.frame_count == 300 {
         unsafe {
             println!("{}", TOTAL_TIME);
         }
-        panic!();
+        panic!("intentional stop to analyize data");
     }
 
     Ok(())
@@ -71,100 +70,49 @@ pub fn update_cells(program_data: &mut ProgramData, dt: f64) {
         let mut world_updates = WorldUpdates::new();
         if cell_data.0.is_none() {return world_updates;}
         let curr_cell_id = (i, cell_data.1);
-        let (grid_x, grid_y) = match update_single_cell(curr_cell_id, cells, &mut world_updates, dt) {
-            CellUpdateResult::Alive {pos: (grid_x, grid_y)} => (grid_x, grid_y),
-            CellUpdateResult::Removed => return world_updates,
-        };
-        update_cell_by_type(curr_cell_id, cells, &mut world_updates, dt);
-        update_connected_cells(curr_cell_id, cells, &mut world_updates, dt);
-        update_nearby_cells(curr_cell_id, grid_x, grid_y, cells, &mut world_updates, dt);
+
+        let mut cell_changes_group = CellChangesGroup::new();
+        let update_result = update_single_cell(curr_cell_id, cells, &mut world_updates, &mut cell_changes_group, dt);
+        if update_result == CellUpdateResult::Removed {return world_updates;}
+        update_cell_by_type(curr_cell_id, cells, &mut world_updates, &mut cell_changes_group, dt);
+        update_connected_cells(curr_cell_id, cells, &mut world_updates, &mut cell_changes_group, dt);
+        update_nearby_cells(curr_cell_id, cells, &mut world_updates, &mut cell_changes_group, dt);
+
+        cell_changes_group.add_self_to_world_updates(&mut world_updates, curr_cell_id);
+
         world_updates
     }).collect();
     //println!("main update time (ms): {}", start.elapsed().as_secs_f64() * 1000.);
-
-    // apply updates
-    //let start = Instant::now();
-    let mut size = 0;
+    
+    let (mut all_changes, mut all_additions) = (vec!(), vec!());
     for world_updates in all_updates {
-        size += world_updates.list.len();
-        for update in world_updates.list {
-            apply_update(update, program_data);
+        all_changes.push(world_updates.changes);
+        all_additions.push(world_updates.additions);
+    }
+
+    // apply change updates
+    //let start = Instant::now();
+    //let mut size = 0;
+    for changes in all_changes {
+        //size += changes.len();
+        for change in changes {
+            apply_change_update(change, program_data);
         }
     }
     //println!("{size}");
+
+    // sync feilds (& remove entities)
+    program_data.cells.sync_feilds();
+    program_data.food.sync_feilds();
+
+    // apply addition updates
+    for additions in all_additions {
+        for addition in additions {
+            apply_addition_update(addition, program_data);
+        }
+    }
     //println!("apply update time (ms): {}", start.elapsed().as_secs_f64() * 1000.);
 
-    // sync feilds
-    program_data.cells.sync_feilds();
-
-}
-
-
-
-
-
-pub fn apply_update (update: UpdateType, program_data: &mut ProgramData) {
-    match update {
-
-        UpdateType::AddFood (food) => {
-            program_data.food.add_entity(food);
-        }
-
-        UpdateType::ChangeCellHealth (cell_index, value) => {
-            program_data.cells.master_list[cell_index].0.as_mut().unwrap().health += value;
-        }
-
-        UpdateType::ChangeCellEnergy (cell_index, value) => {
-            program_data.cells.master_list[cell_index].0.as_mut().unwrap().energy += value;
-        }
-
-        UpdateType::ChangeCellMaterial (cell_index, value) => {
-            program_data.cells.master_list[cell_index].0.as_mut().unwrap().material += value;
-        }
-
-        UpdateType::SetCellXAndY (cell_index, value_1, value_2) => {
-            let cell = program_data.cells.master_list[cell_index].0.as_mut().unwrap();
-            cell.entity.x = value_1;
-            cell.entity.y = value_2;
-        }
-
-        UpdateType::ChangeCellXVel (cell_index, value) => {
-            program_data.cells.master_list[cell_index].0.as_mut().unwrap().x_vel += value;
-        }
-
-        UpdateType::ChangeCellYVel (cell_index, value) => {
-            program_data.cells.master_list[cell_index].0.as_mut().unwrap().y_vel += value;
-        }
-
-        UpdateType::ChangeCellXAndYVel (cell_index, value_1, value_2) => {
-            let cell = program_data.cells.master_list[cell_index].0.as_mut().unwrap();
-            cell.x_vel += value_1;
-            cell.y_vel += value_2;
-        }
-
-        UpdateType::SetCellIsActive (cell_index, value) => {
-            program_data.cells.master_list[cell_index].0.as_mut().unwrap().is_active = value;
-        }
-
-        UpdateType::SetCellShouldBeRemoved (cell_index, value) => {
-            program_data.cells.master_list[cell_index].0.as_mut().unwrap().entity.should_be_removed = value;
-        }
-
-        UpdateType::ChangeCellFatExtraEnergy (cell_index, value) => {
-            let cell = program_data.cells.master_list[cell_index].0.as_mut().unwrap();
-            if let RawCell::Fat (fat_cell_data) = &mut cell.raw_cell {
-                fat_cell_data.extra_energy += value;
-            }
-        }
-
-        UpdateType::ChangeCellFatExtraMaterial (cell_index, value) => {
-            let cell = program_data.cells.master_list[cell_index].0.as_mut().unwrap();
-            if let RawCell::Fat (fat_cell_data) = &mut cell.raw_cell {
-                fat_cell_data.extra_material += value;
-            }
-        }
-
-    }
 }
 
 
@@ -189,15 +137,83 @@ pub fn remove_invalid_ids (curr_cell_id: EntityID, cells: &mut EntityContainer<C
 
 
 
+pub fn apply_change_update (update: ChangeUpdate, program_data: &mut ProgramData) {
+    match update {
+
+        ChangeUpdate::ChangeCellHealth (cell_index, value) => {
+            program_data.cells.master_list[cell_index].0.as_mut().unwrap().health += value;
+        }
+
+        ChangeUpdate::ChangeCellEnergy (cell_index, value) => {
+            program_data.cells.master_list[cell_index].0.as_mut().unwrap().energy += value;
+        }
+
+        ChangeUpdate::ChangeCellMaterial (cell_index, value) => {
+            program_data.cells.master_list[cell_index].0.as_mut().unwrap().material += value;
+        }
+
+        ChangeUpdate::SetCellPos (cell_index, value_1, value_2) => {
+            let cell = program_data.cells.master_list[cell_index].0.as_mut().unwrap();
+            cell.entity.x = value_1;
+            cell.entity.y = value_2;
+        }
+
+        ChangeUpdate::ChangeCellVel (cell_index, value_1, value_2) => {
+            let cell = program_data.cells.master_list[cell_index].0.as_mut().unwrap();
+            cell.x_vel += value_1;
+            cell.y_vel += value_2;
+        }
+
+        ChangeUpdate::SetCellIsActive (cell_index, value) => {
+            program_data.cells.master_list[cell_index].0.as_mut().unwrap().is_active = value;
+        }
+
+        ChangeUpdate::SetCellShouldBeRemoved (cell_index, value) => {
+            program_data.cells.master_list[cell_index].0.as_mut().unwrap().entity.should_be_removed = value;
+        }
+
+        ChangeUpdate::ChangeCellFatExtraEnergy (cell_index, value) => {
+            let cell = program_data.cells.master_list[cell_index].0.as_mut().unwrap();
+            if let RawCell::Fat (fat_cell_data) = &mut cell.raw_cell {
+                fat_cell_data.extra_energy += value;
+            }
+        }
+
+        ChangeUpdate::ChangeCellFatExtraMaterial (cell_index, value) => {
+            let cell = program_data.cells.master_list[cell_index].0.as_mut().unwrap();
+            if let RawCell::Fat (fat_cell_data) = &mut cell.raw_cell {
+                fat_cell_data.extra_material += value;
+            }
+        }
+
+    }
+}
+
+
+
+pub fn apply_addition_update (update: AdditionUpdate, program_data: &mut ProgramData) {
+    match update {
+
+        AdditionUpdate::Food (food) => {
+            program_data.food.add_entity(food);
+        }
+
+    }
+}
+
+
+
+
+
+#[derive(PartialEq)]
 pub enum CellUpdateResult {
-    Alive {pos: (usize, usize)},
+    Alive,
     Removed,
 }
 
-pub fn update_single_cell (curr_cell_id: EntityID, cells: &EntityContainer<Cell>, world_updates: &mut WorldUpdates, dt: f64) -> CellUpdateResult {
+pub fn update_single_cell (curr_cell_id: EntityID, cells: &EntityContainer<Cell>, world_updates: &mut WorldUpdates, cell_changes_group: &mut CellChangesGroup, dt: f64) -> CellUpdateResult {
 
     let cell = cells.master_list[curr_cell_id.0].0.as_ref().unwrap();
-    let output = (cell.entity.x as usize, cell.entity.y as usize);
 
     //-----------------------//
     //        ALWAYS:        //
@@ -211,70 +227,71 @@ pub fn update_single_cell (curr_cell_id: EntityID, cells: &EntityContainer<Cell>
     if cell.entity.x.is_infinite() || cell.entity.y.is_infinite() {panic!("infinite pos")}
     x = x.clamp(0., GRID_WIDTH  as f64 - 0.000001);
     y = y.clamp(0., GRID_HEIGHT as f64 - 0.000001);
-    world_updates.push(UpdateType::SetCellXAndY (curr_cell_id.0, x, y));
+    world_updates.push_change(ChangeUpdate::SetCellPos (curr_cell_id.0, x, y));
 
     // drag
     let x_drag = cell.x_vel * cell.x_vel * cell.x_vel.signum() * CELL_DRAG_COEF;
     let y_drag = cell.y_vel * cell.y_vel * cell.y_vel.signum() * CELL_DRAG_COEF;
-    world_updates.push(UpdateType::ChangeCellXAndYVel (curr_cell_id.0, x_drag * dt * -1., y_drag * dt * -1.));
+    cell_changes_group.x_vel_change -= x_drag * dt;
+    cell_changes_group.y_vel_change -= y_drag * dt;
 
     // constrain pos
     if cell.entity.x < 0.5 {
         let dist = 0.5 - cell.entity.x;
         let force = (1. - dist).sqrt() * CELL_INTERSECTION_FORCE;
-        world_updates.push(UpdateType::ChangeCellXVel (curr_cell_id.0, force * dt));
+        cell_changes_group.x_vel_change += force * dt;
     }
     if cell.entity.x > GRID_WIDTH as f64 - 0.5 {
         let dist = cell.entity.x - GRID_WIDTH as f64 + 0.5;
         let force = (1. - dist).sqrt() * CELL_INTERSECTION_FORCE;
-        world_updates.push(UpdateType::ChangeCellXVel (curr_cell_id.0, force * dt));
+        cell_changes_group.x_vel_change += force * dt;
     }
     if cell.entity.y < 0.5 {
         let dist = 0.5 - cell.entity.y;
         let force = (1. - dist).sqrt() * CELL_INTERSECTION_FORCE;
-        world_updates.push(UpdateType::ChangeCellYVel (curr_cell_id.0, force * dt));
+        cell_changes_group.y_vel_change += force * dt;
     }
     if cell.entity.y > GRID_HEIGHT as f64 - 0.5 {
         let dist = cell.entity.y - GRID_HEIGHT as f64 + 0.5;
         let force = (1. - dist).sqrt() * CELL_INTERSECTION_FORCE;
-        world_updates.push(UpdateType::ChangeCellYVel (curr_cell_id.0, force * dt));
+        cell_changes_group.y_vel_change += force * dt;
     }
 
     // dying
     if cell.is_active && cell.energy <= 0. {
-        world_updates.push(UpdateType::SetCellIsActive (curr_cell_id.0, false));
+        world_updates.push_change(ChangeUpdate::SetCellIsActive (curr_cell_id.0, false));
     }
     if cell.health <= 0. {
-        world_updates.push(UpdateType::SetCellShouldBeRemoved (curr_cell_id.0, true));
-        world_updates.push(UpdateType::AddFood (Food::from_cell(cell)));
+        world_updates.push_change(ChangeUpdate::SetCellShouldBeRemoved (curr_cell_id.0, true));
+        world_updates.push_addition(AdditionUpdate::Food (Food::from_cell(cell)));
         return CellUpdateResult::Removed;
     }
 
-    if !cell.is_active {return CellUpdateResult::Alive {pos: (output.0, output.1)};}
+    if !cell.is_active {return CellUpdateResult::Alive;}
 
     //--------------------------//
     //        IF ACTIVE:        //
     //--------------------------//
 
     // energy drain
-    world_updates.push(UpdateType::ChangeCellEnergy (curr_cell_id.0, CELL_ENERGY_USE_RATE * dt));
+    cell_changes_group.energy_change -= CELL_ENERGY_USE_RATE * dt;
 
     // healing
     if cell.health < 1. {
         let heal_amount = (1. - cell.health).min(CELL_HEALING_RATE);
-        world_updates.push(UpdateType::ChangeCellHealth (curr_cell_id.0, heal_amount * dt));
-        world_updates.push(UpdateType::ChangeCellEnergy (curr_cell_id.0, heal_amount * CELL_HEALING_ENERGY_COST * dt));
-        world_updates.push(UpdateType::ChangeCellMaterial (curr_cell_id.0, heal_amount * CELL_HEALING_MATERIAL_COST * dt));
+        world_updates.push_change(ChangeUpdate::ChangeCellHealth (curr_cell_id.0, heal_amount * dt));
+        cell_changes_group.energy_change -= heal_amount * CELL_HEALING_ENERGY_COST * dt;
+        cell_changes_group.material_change -= heal_amount * CELL_HEALING_MATERIAL_COST * dt;
     }
 
-    CellUpdateResult::Alive {pos: (output.0, output.1)}
+    CellUpdateResult::Alive
 }
 
 
 
 
 
-pub fn update_cell_by_type (curr_cell_id: EntityID, cells: &EntityContainer<Cell>, world_updates: &mut WorldUpdates, dt: f64) {
+pub fn update_cell_by_type (curr_cell_id: EntityID, cells: &EntityContainer<Cell>, world_updates: &mut WorldUpdates, cell_changes_group: &mut CellChangesGroup, dt: f64) {
     let cell = cells.master_list[curr_cell_id.0].0.as_ref().unwrap();
     if !cell.is_active {return;}
     match &cell.raw_cell {
@@ -282,29 +299,29 @@ pub fn update_cell_by_type (curr_cell_id: EntityID, cells: &EntityContainer<Cell
         RawCell::Fat (cell_data) => {
             // transfer logic
             if cell.energy > cell_data.energy_store_threshold {
-                let transfer_amount = (cell.energy - cell_data.energy_release_threshold).min(cell_data.energy_store_rate) * dt;
-                world_updates.push(UpdateType::ChangeCellEnergy (curr_cell_id.0, transfer_amount * -1.));
-                world_updates.push(UpdateType::ChangeCellFatExtraEnergy (curr_cell_id.0, transfer_amount));
+                let transfer_amount = (cell.energy - cell_data.energy_store_threshold).min(cell_data.energy_store_rate) * dt;
+                cell_changes_group.energy_change -= transfer_amount;
+                world_updates.push_change(ChangeUpdate::ChangeCellFatExtraEnergy (curr_cell_id.0, transfer_amount));
             } else if cell.energy < cell_data.energy_release_threshold {
-                let transfer_amount = (cell_data.energy_store_threshold - cell.energy).min(cell_data.energy_release_rate) * dt;
-                world_updates.push(UpdateType::ChangeCellEnergy (curr_cell_id.0, transfer_amount));
-                world_updates.push(UpdateType::ChangeCellFatExtraEnergy (curr_cell_id.0, transfer_amount * -1.));
+                let transfer_amount = cell_data.extra_energy.min(cell_data.energy_release_rate) * dt;
+                cell_changes_group.energy_change += transfer_amount;
+                world_updates.push_change(ChangeUpdate::ChangeCellFatExtraEnergy (curr_cell_id.0, transfer_amount * -1.));
             }
             if cell.material > cell_data.material_store_threshold {
-                let transfer_amount = (cell.material - cell_data.material_release_threshold).min(cell_data.material_store_rate) * dt;
-                world_updates.push(UpdateType::ChangeCellMaterial (curr_cell_id.0, transfer_amount * -1.));
-                world_updates.push(UpdateType::ChangeCellFatExtraMaterial (curr_cell_id.0, transfer_amount));
+                let transfer_amount = (cell.material - cell_data.material_store_threshold).min(cell_data.material_store_rate) * dt;
+                cell_changes_group.material_change -= transfer_amount;
+                world_updates.push_change(ChangeUpdate::ChangeCellFatExtraMaterial (curr_cell_id.0, transfer_amount));
             } else if cell.material < cell_data.material_release_threshold {
-                let transfer_amount = (cell_data.material_store_threshold - cell.material).min(cell_data.material_release_rate) * dt;
-                world_updates.push(UpdateType::ChangeCellMaterial (curr_cell_id.0, transfer_amount));
-                world_updates.push(UpdateType::ChangeCellFatExtraMaterial (curr_cell_id.0, transfer_amount * -1.));
+                let transfer_amount = cell_data.extra_material.min(cell_data.material_release_rate) * dt;
+                cell_changes_group.material_change += transfer_amount;
+                world_updates.push_change(ChangeUpdate::ChangeCellFatExtraMaterial (curr_cell_id.0, transfer_amount * -1.));
             }
         }
 
         RawCell::Photosynthesiser => {
             if cell.energy >= 1.0 {return;}
             let photosynthesis_amount = (1.0 - cell.energy).min(CELL_PHOTOSYNTHESISER_RATE) * dt;
-            world_updates.push(UpdateType::ChangeCellEnergy (curr_cell_id.0, photosynthesis_amount));
+            cell_changes_group.energy_change += photosynthesis_amount;
         }
 
     }
@@ -314,7 +331,7 @@ pub fn update_cell_by_type (curr_cell_id: EntityID, cells: &EntityContainer<Cell
 
 
 
-pub fn update_connected_cells (curr_cell_id: EntityID, cells: &EntityContainer<Cell>, world_updates: &mut WorldUpdates, dt: f64) {
+pub fn update_connected_cells (curr_cell_id: EntityID, cells: &EntityContainer<Cell>, world_updates: &mut WorldUpdates, cell_changes_group: &mut CellChangesGroup, dt: f64) {
     let cell = cells.master_list[curr_cell_id.0].0.as_ref().unwrap();
 
     // get connected cells
@@ -338,7 +355,8 @@ pub fn update_connected_cells (curr_cell_id: EntityID, cells: &EntityContainer<C
         let force_from_dist_y = dp.1 * force_from_dist * -1.;
         let force_from_drag_x = dv.0 * dv_len * CELL_CONNECTION_DRAG;
         let force_from_drag_y = dv.1 * dv_len * CELL_CONNECTION_DRAG;
-        world_updates.push(UpdateType::ChangeCellXAndYVel (curr_cell_id.0, (force_from_dist_x + force_from_drag_x) * dt, (force_from_dist_y + force_from_drag_y) * dt));
+        cell_changes_group.x_vel_change += (force_from_dist_x + force_from_drag_x) * dt;
+        cell_changes_group.y_vel_change += (force_from_dist_y + force_from_drag_y) * dt;
 
         if !cell.is_active {continue;}
 
@@ -347,15 +365,15 @@ pub fn update_connected_cells (curr_cell_id: EntityID, cells: &EntityContainer<C
         //--------------------------//
 
         // transfers
-        if connected_cell.energy < cell.energy {
+        if cell.energy > connected_cell.energy + CELL_ENERGY_TRANSFER_THRESHOLD {
             let transfer_amount = (cell.energy - connected_cell.energy) * CELL_ENERGY_TRANSFER_RATE * dt;
-            world_updates.push(UpdateType::ChangeCellEnergy (curr_cell_id.0, transfer_amount * -1.));
-            world_updates.push(UpdateType::ChangeCellEnergy (connected_cell_id.0, transfer_amount));
+            cell_changes_group.energy_change -= transfer_amount;
+            world_updates.push_change(ChangeUpdate::ChangeCellEnergy (connected_cell_id.0, transfer_amount));
         }
-        if connected_cell.material < cell.material {
+        if cell.material > connected_cell.material + CELL_MATERIAL_TRANSFER_THRESHOLD {
             let transfer_amount = (cell.material - connected_cell.material) * CELL_MATERIAL_TRANSFER_RATE * dt;
-            world_updates.push(UpdateType::ChangeCellMaterial (curr_cell_id.0, transfer_amount * -1.));
-            world_updates.push(UpdateType::ChangeCellMaterial (connected_cell_id.0, transfer_amount));
+            cell_changes_group.material_change -= transfer_amount;
+            world_updates.push_change(ChangeUpdate::ChangeCellMaterial (connected_cell_id.0, transfer_amount));
         }
 
     }
@@ -366,11 +384,12 @@ pub fn update_connected_cells (curr_cell_id: EntityID, cells: &EntityContainer<C
 
 
 
-pub fn update_nearby_cells (curr_cell_id: EntityID, grid_x: usize, grid_y: usize, cells: &EntityContainer<Cell>, world_updates: &mut WorldUpdates, dt: f64) {
+pub fn update_nearby_cells (curr_cell_id: EntityID, cells: &EntityContainer<Cell>, world_updates: &mut WorldUpdates, cell_changes_group: &mut CellChangesGroup, dt: f64) {
     let cell = cells.master_list[curr_cell_id.0].0.as_ref().unwrap();
+    let grid_pos = (cell.entity.current_grid_x, cell.entity.current_grid_y);
 
     // get nearby cells
-    let mut nearby_cell_ids = fns::get_entity_ids_near_pos((grid_x, grid_y), cells);
+    let mut nearby_cell_ids = fns::get_entity_ids_near_pos(grid_pos, cells);
     let curr_cell_id_index = fns::find_item_index_custom(&nearby_cell_ids, |id| id.0 == curr_cell_id.0).unwrap();
     nearby_cell_ids.swap_remove(curr_cell_id_index);
 
@@ -382,7 +401,8 @@ pub fn update_nearby_cells (curr_cell_id: EntityID, grid_x: usize, grid_y: usize
         if dist > 1. {continue;}
         let force = (1. - dist).sqrt() * CELL_INTERSECTION_FORCE;
         let force_vec = (dist_vec.0 * force, dist_vec.1 * force);
-        world_updates.push(UpdateType::ChangeCellXAndYVel (curr_cell_id.0, force_vec.0 * dt * -1., force_vec.1 * dt * -1.));
+        cell_changes_group.x_vel_change -= force_vec.0 * dt;
+        cell_changes_group.y_vel_change -= force_vec.1 * dt;
     }
 
 }
